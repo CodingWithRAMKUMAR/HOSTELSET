@@ -4,8 +4,10 @@ begin;
 -- 1. TENANT RENT-PRICING MODE AND SCHEDULED CHANGE FIELDS
 -- =========================================================
 
+-- Existing rows initially receive false without executing UPDATE triggers.
+-- New tenants will default to room-following after the backfill.
 alter table public.tenants
-  add column if not exists rent_follows_room boolean;
+  add column if not exists rent_follows_room boolean not null default false;
 
 alter table public.tenants
   add column if not exists scheduled_rent_amount numeric(12, 2);
@@ -50,76 +52,131 @@ alter table public.tenants
 -- 2. SAFE BACKFILL OF EXISTING TENANT PRICING MODES
 -- =========================================================
 
--- Imported tenants always keep their own custom rent.
+-- Archived tenants are intentionally not updated because their
+-- historical rows are protected from modification.
+
+-- Imported tenants always keep custom pricing.
 update public.tenants tenant
 set rent_follows_room = false
-where exists (
-  select 1
-  from public.existing_tenant_imports imported
-  where imported.tenant_id = tenant.id
-    and imported.status = 'approved'
-);
+where tenant.status in (
+    'active',
+    'notice_period',
+    'payment_pending'
+  )
+  and exists (
+    select 1
+    from public.existing_tenant_imports imported
+    where imported.tenant_id = tenant.id
+      and imported.status = 'approved'
+  );
 
--- Application-created tenants follow room pricing.
+-- Application-created tenants follow room pricing unless they
+-- originated from an approved existing-tenant import.
 update public.tenants tenant
 set rent_follows_room = true
-where tenant.rent_follows_room is null
+where tenant.status in (
+    'active',
+    'notice_period',
+    'payment_pending'
+  )
   and exists (
     select 1
     from public.applications application
     where application.user_id = tenant.user_id
       and application.property_id = tenant.property_id
       and application.status = 'approved'
+  )
+  and not exists (
+    select 1
+    from public.existing_tenant_imports imported
+    where imported.tenant_id = tenant.id
+      and imported.status = 'approved'
   );
 
--- Converted pre-bookings follow room pricing.
+-- Converted pre-bookings follow room pricing unless imported.
 update public.tenants tenant
 set rent_follows_room = true
-where tenant.rent_follows_room is null
+where tenant.status in (
+    'active',
+    'notice_period',
+    'payment_pending'
+  )
   and exists (
     select 1
     from public.pre_bookings booking
     where booking.tenant_id = tenant.id
       and booking.status = 'converted'
+  )
+  and not exists (
+    select 1
+    from public.existing_tenant_imports imported
+    where imported.tenant_id = tenant.id
+      and imported.status = 'approved'
   );
 
--- A tenant who completed a room change follows the new room price.
+-- Completed room-change tenants follow the destination-room price,
+-- except imported tenants whose rent remains custom.
 update public.tenants tenant
 set rent_follows_room = true
-where tenant.rent_follows_room is null
+where tenant.status in (
+    'active',
+    'notice_period',
+    'payment_pending'
+  )
   and exists (
+    select 1
+    from public.room_change_requests request
+    where request.tenant_id = tenant.id
+      and request.status = 'approved'
+  )
+  and not exists (
+    select 1
+    from public.existing_tenant_imports imported
+    where imported.tenant_id = tenant.id
+      and imported.status = 'approved'
+  );
+
+-- Infer remaining active tenants from their current room price.
+update public.tenants tenant
+set rent_follows_room =
+  tenant.rent_amount is not distinct from room.monthly_rent
+from public.rooms room
+where tenant.room_id = room.id
+  and tenant.status in (
+    'active',
+    'notice_period',
+    'payment_pending'
+  )
+  and not exists (
+    select 1
+    from public.existing_tenant_imports imported
+    where imported.tenant_id = tenant.id
+      and imported.status = 'approved'
+  )
+  and not exists (
+    select 1
+    from public.applications application
+    where application.user_id = tenant.user_id
+      and application.property_id = tenant.property_id
+      and application.status = 'approved'
+  )
+  and not exists (
+    select 1
+    from public.pre_bookings booking
+    where booking.tenant_id = tenant.id
+      and booking.status = 'converted'
+  )
+  and not exists (
     select 1
     from public.room_change_requests request
     where request.tenant_id = tenant.id
       and request.status = 'approved'
   );
 
--- For remaining existing tenants:
--- matching rent means room-following;
--- different rent means custom pricing.
-update public.tenants tenant
-set rent_follows_room =
-  case
-    when room.id is not null
-     and tenant.rent_amount = room.monthly_rent
-    then true
-    else false
-  end
-from public.rooms room
-where tenant.room_id = room.id
-  and tenant.rent_follows_room is null;
-
--- Safest fallback for records without a valid room.
-update public.tenants
-set rent_follows_room = false
-where rent_follows_room is null;
-
+-- Future tenant inserts default to room-following. The insert trigger
+-- will still classify custom owner-entered rents correctly.
 alter table public.tenants
   alter column rent_follows_room set default true;
-
-alter table public.tenants
-  alter column rent_follows_room set not null;
-
 
 -- =========================================================
 -- 3. REPAIR CURRENT RENT OF APPROVED IMPORTED TENANTS
