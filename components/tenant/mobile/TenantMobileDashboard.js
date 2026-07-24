@@ -40,6 +40,25 @@ export default function TenantMobileDashboard({ tenant, room, property, roommate
 
         <section className="grid grid-cols-2 gap-2">
           <Stat label="Monthly rent" value={formatCurrency(tenant?.rent_amount || 0)} onClick={() => onNavigate('payments')} />
+          {tenant?.scheduled_rent_amount != null &&
+            tenant?.scheduled_rent_effective_period &&
+            Number(tenant.scheduled_rent_amount) !== Number(tenant.rent_amount) && (
+              <button
+                type="button"
+                onClick={() => onNavigate('payments')}
+                className="col-span-2 rounded-2xl border border-orange-200 bg-orange-50 p-2 text-left shadow-sm"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">
+                  Scheduled rent change
+                </p>
+                <p className="text-sm font-black text-slate-900">
+                  {formatCurrency(tenant.scheduled_rent_amount)}
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  Effective from {formatDate(tenant.scheduled_rent_effective_period)}
+                </p>
+              </button>
+            )}
           <Stat label="Pending" value={formatCurrency(tenant?.rentSummary?.dueAmount ?? tenant?.dueStatus?.dueAmount ?? tenant?.pending_amount ?? 0)} onClick={() => onNavigate('payments')} />
           <Stat label="Total paid" value={formatCurrency(tenant?.total_paid || 0)} onClick={() => onNavigate('payments')} />
           <Stat label="Deposit" value={formatCurrency(tenant?.security_deposit_amount || 0)} />

@@ -648,6 +648,14 @@ function TenantDashboardContent() {
             <div>
               <p className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Monthly Rent</p>
               <p className="text-base sm:text-xl font-bold text-gray-800 truncate">{formatCurrency(tenant?.rent_amount)}</p>
+              {tenant?.scheduled_rent_amount != null &&
+                tenant?.scheduled_rent_effective_period &&
+                Number(tenant.scheduled_rent_amount) !== Number(tenant.rent_amount) && (
+                  <p className="mt-1 text-[10px] font-semibold leading-tight text-orange-600 sm:text-xs">
+                    Changes to {formatCurrency(tenant.scheduled_rent_amount)} from{' '}
+                    {formatDate(tenant.scheduled_rent_effective_period)}
+                  </p>
+                )}
             </div>
           </button>
           <button type="button" onClick={() => openSection('payments')} className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 hover:shadow-md hover:border-orange-200 transition flex items-center gap-2 sm:gap-3 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
