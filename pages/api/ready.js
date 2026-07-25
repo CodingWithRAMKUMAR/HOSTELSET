@@ -1,9 +1,16 @@
-﻿import { attachRequestContext } from '../../lib/server/requestContext'
+import { attachRequestContext } from '../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../lib/server/requestTelemetry'
 import { supabaseAdmin } from '../../lib/server/supabaseAdmin'
 import { logger } from '../../lib/logger'
 
 export default async function handler(req, res) {
   const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/ready',
+    requestId,
+    reportServerErrors: false,
+  })
 
   res.setHeader('Cache-Control', 'no-store')
 

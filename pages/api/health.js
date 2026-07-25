@@ -1,7 +1,13 @@
-﻿import { attachRequestContext } from '../../lib/server/requestContext'
+import { attachRequestContext } from '../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../lib/server/requestTelemetry'
 
 export default function handler(req, res) {
   const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/health',
+    requestId,
+  })
 
   res.setHeader('Cache-Control', 'no-store')
 
