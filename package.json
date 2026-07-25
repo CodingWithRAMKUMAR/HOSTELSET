@@ -18,7 +18,8 @@
     "test:e2e:headed": "playwright test --config=playwright.config.js --headed",
     "test:e2e:production": "playwright test --config=playwright.production.config.js",
     "test:e2e:production:headed": "playwright test --config=playwright.production.config.js --headed",
-    "test:monitoring": "node scripts/logger-monitoring-tests.cjs"
+    "test:monitoring": "node scripts/logger-monitoring-tests.cjs",
+    "test:request-context": "node scripts/request-context-tests.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.8",
