@@ -2,6 +2,8 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 import { safeTenantProfilePhotoPath } from '../../../lib/profilePhoto'
 
 const COOKIE_NAME = 'hostelset_access_token'
@@ -55,6 +57,13 @@ async function verifyUploadedProfilePhoto(path) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/tenant/profile-photo',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   if (!supabaseAdmin) return res.status(503).json({ error: 'Profile photo service is unavailable' })
 
@@ -82,7 +91,7 @@ export default async function handler(req, res) {
     }
     return res.status(400).json({ error: 'Invalid profile photo action' })
   } catch (error) {
-    logger.error('Tenant profile photo update failed', error, { route: '/api/tenant/profile-photo' })
+    logger.error('Tenant profile photo update failed', error, { route: '/api/tenant/profile-photo', requestId })
     return res.status(error.statusCode || 500).json({ error: error.statusCode ? error.message : 'Unable to update profile photo. Please try again.' })
   }
 }

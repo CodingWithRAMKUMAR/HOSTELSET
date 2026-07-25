@@ -2,6 +2,8 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 import { validateProfilePhotoUpload } from '../../../lib/profilePhoto'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -10,6 +12,13 @@ export const config = { api: { bodyParser: { sizeLimit: '4kb' } } }
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/owner/tenant-profile-photo-upload-url',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   if (!supabaseAdmin) return res.status(503).json({ error: 'Photo upload service is unavailable' })
 
@@ -47,7 +56,7 @@ export default async function handler(req, res) {
     if (error) throw error
     return res.status(200).json({ path, token: data.token })
   } catch (error) {
-    logger.error('Owner tenant profile photo upload URL failed', error, { route: '/api/owner/tenant-profile-photo-upload-url' })
+    logger.error('Owner tenant profile photo upload URL failed', error, { route: '/api/owner/tenant-profile-photo-upload-url', requestId })
     return res.status(500).json({ error: 'Unable to prepare profile photo upload. Please try again.' })
   }
 }

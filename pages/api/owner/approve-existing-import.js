@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 import { getResetPasswordUrl } from '../../../lib/server/appUrl'
 import { safeProfilePhotoPath } from '../../../lib/profilePhoto'
 
@@ -38,6 +40,13 @@ async function replaceStaleTenantProfile(userId, importRecord) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/owner/approve-existing-import',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   if (!supabaseAdmin) return res.status(503).json({ error: 'Approval service is unavailable' })
 
@@ -109,7 +118,7 @@ export default async function handler(req, res) {
         const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(importRecord.email, {
           redirectTo,
         })
-        if (resetError) logger.warn('Existing import approved, but password setup email failed', { message: resetError.message })
+        if (resetError) logger.warn('Existing import approved, but password setup email failed', { message: resetError.message, requestId })
         else inviteEmailSent = true
       }
     }
@@ -136,7 +145,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, tenantId: data?.tenant_id, inviteEmailSent })
   } catch (error) {
     if (createdUserId) await supabaseAdmin.auth.admin.deleteUser(createdUserId).catch(() => {})
-    logger.error('Existing tenant import approval failed', error, { route: '/api/owner/approve-existing-import' })
+    logger.error('Existing tenant import approval failed', error, { route: '/api/owner/approve-existing-import', requestId })
     const message = process.env.NODE_ENV === 'production' ? 'Import approval failed' : (error.message || 'Import approval failed')
     return res.status(400).json({ error: message })
   }

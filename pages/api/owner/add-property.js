@@ -3,6 +3,8 @@ import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { cleanPhoneNumber } from '../../../lib/utils'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 
 export const config = { api: { bodyParser: { sizeLimit: '128kb' } } }
 
@@ -25,6 +27,13 @@ function safeError(error) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/owner/add-property',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   if (!supabaseAdmin) return res.status(503).json({ error: 'Property service is unavailable' })
 
@@ -104,7 +113,7 @@ export default async function handler(req, res) {
     if (!data?.success) return res.status(400).json({ error: data?.error || 'Property could not be added.' })
     return res.status(201).json({ success: true, propertyId: data.property_id })
   } catch (error) {
-    logger.error('Existing owner add property failed', error, { route: '/api/owner/add-property' })
+    logger.error('Existing owner add property failed', error, { route: '/api/owner/add-property', requestId })
     return res.status(400).json({ error: safeError(error) })
   }
 }

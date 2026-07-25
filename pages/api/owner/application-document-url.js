@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 
 const COOKIE_NAME = 'hostelset_access_token'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -17,6 +19,13 @@ function readCookie(req, name) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/owner/application-document-url',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   try {
     if (!supabaseAdmin) return res.status(503).json({ error: 'Document service is unavailable' })
@@ -65,7 +74,7 @@ export default async function handler(req, res) {
     if (error || !data?.signedUrl) throw error || new Error('Signed URL was not returned')
     return res.status(200).json({ signedUrl: data.signedUrl })
   } catch (error) {
-    logger.error('Application document signing failed', error, { route: '/api/owner/application-document-url' })
+    logger.error('Application document signing failed', error, { route: '/api/owner/application-document-url', requestId })
     return res.status(500).json({ error: 'Unable to open document. Please try again.' })
   }
 }

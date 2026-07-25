@@ -4,6 +4,8 @@ import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { cleanPhoneNumber } from '../../../lib/utils'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 import { getResetPasswordUrl } from '../../../lib/server/appUrl'
 import { normalizeBloodGroup } from '../../../lib/bloodGroups'
 import { isIdentityDocumentPath, safeProfilePhotoPath } from '../../../lib/profilePhoto'
@@ -19,6 +21,13 @@ function cleanText(value, maxLength) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/owner/tenants',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   if (!supabaseAdmin) return res.status(503).json({ error: 'Tenant registration service is unavailable' })
 
@@ -104,16 +113,16 @@ export default async function handler(req, res) {
     })
     if (mailError) {
       emailSent = false
-      logger.error('Owner-created tenant password email failed', mailError, { route: '/api/owner/tenants' })
+      logger.error('Owner-created tenant password email failed', mailError, { route: '/api/owner/tenants', requestId })
     }
 
     return res.status(201).json({ success: true, tenantId: data?.tenant_id, emailSent })
   } catch (error) {
     if (createdUserId) {
       const { error: cleanupError } = await supabaseAdmin.auth.admin.deleteUser(createdUserId)
-      if (cleanupError) logger.error('Tenant auth rollback failed', cleanupError, { route: '/api/owner/tenants' })
+      if (cleanupError) logger.error('Tenant auth rollback failed', cleanupError, { route: '/api/owner/tenants', requestId })
     }
-    logger.error('Owner tenant registration failed', error, { route: '/api/owner/tenants' })
+    logger.error('Owner tenant registration failed', error, { route: '/api/owner/tenants', requestId })
     const conflict = error?.code === '23505' || /already|registered|exists/i.test(error?.message || '')
     const message = process.env.NODE_ENV === 'production'
       ? 'Tenant registration failed'

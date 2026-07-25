@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 import { normalizePrivateDocumentPath } from '../../../lib/privateDocument'
 
 const COOKIE_NAME = 'hostelset_access_token'
@@ -33,6 +35,13 @@ async function objectExists(objectPath) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/owner/import-document-url',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   try {
     if (!supabaseAdmin) return res.status(503).json({ error: 'Document service is unavailable' })
@@ -94,7 +103,7 @@ export default async function handler(req, res) {
     if (error || !data?.signedUrl) throw error || new Error('Signed URL was not returned')
     return res.status(200).json({ signedUrl: data.signedUrl })
   } catch (error) {
-    logger.error('Existing tenant import document signing failed', error, { route: '/api/owner/import-document-url' })
+    logger.error('Existing tenant import document signing failed', error, { route: '/api/owner/import-document-url', requestId })
     return res.status(500).json({ error: 'Unable to open document. Please try again.' })
   }
 }
