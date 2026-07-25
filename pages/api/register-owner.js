@@ -2,6 +2,8 @@ import { supabaseAdmin } from '../../lib/server/supabaseAdmin'
 import { cleanPhoneNumber } from '../../lib/utils'
 import { allowPostOnly, enforceRateLimit, getClientIp, requireJson, setPrivateApiResponse } from '../../lib/server/publicApiSecurity'
 import { logger } from '../../lib/logger'
+import { attachRequestContext } from '../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../lib/server/requestTelemetry'
 
 export const config = { api: { bodyParser: { sizeLimit: '256kb' } } }
 
@@ -15,6 +17,15 @@ function text(value, max) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/register-owner',
+    requestId,
+    reportServerErrors: false,
+  })
+
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   if (!supabaseAdmin) return res.status(503).json({ error: 'Registration service unavailable' })
   const ip = getClientIp(req)
@@ -71,7 +82,10 @@ export default async function handler(req, res) {
     })
 
     if (authError) {
-      logger.error('Owner registration auth creation failed', authError, { route: '/api/register-owner' })
+      logger.error('Owner registration auth creation failed', authError, {
+        route: '/api/register-owner',
+        requestId,
+      })
       const duplicate = /already|registered|exists/i.test(authError.message || '')
       return res.status(duplicate ? 409 : 400).json({ error: duplicate ? 'An account already exists for these details' : 'Unable to create this account' })
     }
@@ -97,13 +111,23 @@ export default async function handler(req, res) {
     // 3. Check the function result
     if (dbError) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
-      logger.error('Owner registration database function failed', dbError, { route: '/api/register-owner' })
+      logger.error('Owner registration database function failed', dbError, {
+        route: '/api/register-owner',
+        requestId,
+      })
       return res.status(500).json({ error: 'Registration could not be completed' })
     }
 
     if (!data || !data.success) {
       await supabaseAdmin.auth.admin.deleteUser(userId)
-      logger.error('Owner registration function returned failure', new Error(data?.error || 'Registration function failed'), { route: '/api/register-owner' })
+      logger.error(
+        'Owner registration function returned failure',
+        new Error(data?.error || 'Registration function failed'),
+        {
+          route: '/api/register-owner',
+          requestId,
+        }
+      )
       return res.status(400).json({ error: data?.error || 'Registration failed' })
     }
 
@@ -115,7 +139,10 @@ export default async function handler(req, res) {
       location_verified: false,
     }).eq('id', data.property_id).eq('owner_id', userId)
     if (locationError) {
-      logger.error('Property location update failed', locationError, { route: '/api/register-owner' })
+      logger.error('Property location update failed', locationError, {
+        route: '/api/register-owner',
+        requestId,
+      })
       await supabaseAdmin.auth.admin.deleteUser(userId)
       return res.status(500).json({ error: 'Registration could not be completed' })
     }
@@ -128,7 +155,10 @@ export default async function handler(req, res) {
       propertyId: data.property_id
     })
   } catch (error) {
-    logger.error('Owner registration failed', error, { route: '/api/register-owner' })
+    logger.error('Owner registration failed', error, {
+      route: '/api/register-owner',
+      requestId,
+    })
     return res.status(500).json({
       error: 'Registration failed. Please try again.'
     })
