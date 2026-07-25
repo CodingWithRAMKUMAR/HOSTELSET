@@ -1,4 +1,5 @@
-﻿import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
+import { logger } from '../../../lib/logger'
 
 const FRESH_CACHE_TTL_MS = 60 * 1000
 const STALE_CACHE_MAX_AGE_MS = 30 * 60 * 1000
@@ -70,7 +71,10 @@ function startBackgroundRefresh() {
 
   inFlightRequest = fetchFreshProperties()
     .catch((error) => {
-      console.error('[public-properties-background-refresh]', error)
+      logger.warn('Public properties background refresh failed', {
+        route: '/api/public/properties',
+        message: error?.message,
+      })
       return null
     })
     .finally(() => {
@@ -152,7 +156,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json(result.data)
   } catch (error) {
-    console.error('[public-properties-api]', error)
+    logger.error('Public properties request failed', error, {
+      route: '/api/public/properties',
+      cacheAvailable: Array.isArray(cachedProperties),
+    })
 
     res.setHeader('Cache-Control', 'no-store')
 

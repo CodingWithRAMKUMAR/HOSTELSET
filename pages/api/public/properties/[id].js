@@ -1,4 +1,5 @@
-﻿import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
+import { logger } from '../../../../lib/logger'
 
 const CACHE_TTL_MS = 15 * 1000
 const STALE_MAX_AGE_MS = 5 * 60 * 1000
@@ -126,7 +127,11 @@ async function fetchSimilarProperties(supabase, property) {
       })
       .slice(0, 4)
   } catch (error) {
-    console.warn('[public-property-details-api:similar-properties]', error)
+    logger.warn('Similar public properties lookup failed', {
+      route: '/api/public/properties/[id]',
+      propertyId: property?.id,
+      message: error?.message,
+    })
     return []
   }
 }
@@ -175,10 +180,11 @@ async function fetchFreshPropertyDetails(identifier) {
     ])
 
   if (settingsResult.error) {
-    console.warn(
-      '[public-property-details-api:settings]',
-      settingsResult.error
-    )
+    logger.warn('Public property payment settings lookup failed', {
+      route: '/api/public/properties/[id]',
+      propertyId: property.id,
+      message: settingsResult.error?.message,
+    })
   }
 
   const response = {
@@ -299,7 +305,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json(result.data)
   } catch (error) {
-    console.error('[public-property-details-api]', error)
+    logger.error('Public property details request failed', error, {
+      route: '/api/public/properties/[id]',
+      identifier,
+      statusCode: error?.statusCode,
+    })
 
     res.setHeader('Cache-Control', 'no-store')
 

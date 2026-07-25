@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { normalizeBloodGroup } from '../../../lib/bloodGroups'
+import { logger } from '../../../lib/logger'
 
 const MAX_PER_GROUP = 5
 
@@ -43,7 +44,16 @@ export default async function handler(req, res) {
     supabaseAdmin.from('applications').select('id,name,phone,email,blood_group,status,property_id,room_id,rooms(room_number),properties(name,city,locality)').or(applicationFilter.join(',')).order('created_at', { ascending: false }).limit(MAX_PER_GROUP),
     supabaseAdmin.from('existing_tenant_imports').select('id,full_name,phone,email,blood_group,status,property_id,room_id,room_number').or(importFilter.join(',')).order('created_at', { ascending: false }).limit(MAX_PER_GROUP),
   ])
-  const failed = [tenants, owners, properties, applications, imports].find(result => result.error)
-  if (failed) return res.status(500).json({ error: 'Search failed' })
+  const failed = [tenants, owners, properties, applications, imports]
+    .find(result => result.error)
+
+  if (failed) {
+    logger.error('Admin global search query failed', failed.error, {
+      route: '/api/admin/global-search',
+      queryLength: q.length,
+    })
+
+    return res.status(500).json({ error: 'Search failed' })
+  }
   return res.status(200).json({ groups: { Tenants: tenants.data, Owners: owners.data, Properties: properties.data, Applications: applications.data, Imports: imports.data } })
 }
