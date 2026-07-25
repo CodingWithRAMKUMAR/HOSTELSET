@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '../../../lib/logger'
 import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 
 const FRESH_CACHE_TTL_MS = 60 * 1000
 const STALE_CACHE_MAX_AGE_MS = 30 * 60 * 1000
@@ -135,6 +136,12 @@ async function getProperties(requestId) {
 
 export default async function handler(req, res) {
   const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/public/properties',
+    requestId,
+    reportServerErrors: false,
+  })
 
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
