@@ -1,4 +1,6 @@
-﻿import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
+import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
 
 const FRESH_CACHE_TTL_MS = 60 * 1000
 const STALE_CACHE_MAX_AGE_MS = 30 * 60 * 1000
@@ -63,14 +65,18 @@ async function fetchFreshProperties() {
   return properties
 }
 
-function startBackgroundRefresh() {
+function startBackgroundRefresh(requestId) {
   if (inFlightRequest) {
     return inFlightRequest
   }
 
   inFlightRequest = fetchFreshProperties()
     .catch((error) => {
-      console.error('[public-properties-background-refresh]', error)
+      logger.warn('Public properties background refresh failed', {
+        route: '/api/public/properties',
+        requestId,
+        message: error?.message,
+      })
       return null
     })
     .finally(() => {
@@ -80,7 +86,7 @@ function startBackgroundRefresh() {
   return inFlightRequest
 }
 
-async function getProperties() {
+async function getProperties(requestId) {
   const now = Date.now()
   const cacheAge = now - cachedAt
   const hasCachedData = Array.isArray(cachedProperties)
@@ -99,7 +105,7 @@ async function getProperties() {
    * Visitors do not wait for Supabase during temporary network slowdowns.
    */
   if (hasCachedData && cacheAge < STALE_CACHE_MAX_AGE_MS) {
-    startBackgroundRefresh()
+    startBackgroundRefresh(requestId)
 
     return {
       data: cachedProperties,
@@ -128,6 +134,8 @@ async function getProperties() {
 }
 
 export default async function handler(req, res) {
+  const requestId = attachRequestContext(req, res)
+
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
 
@@ -137,7 +145,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await getProperties()
+    const result = await getProperties(requestId)
 
     res.setHeader(
       'Cache-Control',
@@ -152,7 +160,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json(result.data)
   } catch (error) {
-    console.error('[public-properties-api]', error)
+    logger.error('Public properties request failed', error, {
+      route: '/api/public/properties',
+      requestId,
+      cacheAvailable: Array.isArray(cachedProperties),
+    })
 
     res.setHeader('Cache-Control', 'no-store')
 

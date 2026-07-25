@@ -1,4 +1,6 @@
-﻿import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
+import { logger } from '../../../../lib/logger'
+import { attachRequestContext } from '../../../../lib/server/requestContext'
 
 const CACHE_TTL_MS = 15 * 1000
 const STALE_MAX_AGE_MS = 5 * 60 * 1000
@@ -104,7 +106,7 @@ async function fetchPublicRooms(supabase, propertyId) {
   }))
 }
 
-async function fetchSimilarProperties(supabase, property) {
+async function fetchSimilarProperties(supabase, property, requestId) {
   if (!property?.city) {
     return []
   }
@@ -126,12 +128,17 @@ async function fetchSimilarProperties(supabase, property) {
       })
       .slice(0, 4)
   } catch (error) {
-    console.warn('[public-property-details-api:similar-properties]', error)
+    logger.warn('Similar public properties lookup failed', {
+      route: '/api/public/properties/[id]',
+      requestId,
+      propertyId: property?.id,
+      message: error?.message,
+    })
     return []
   }
 }
 
-async function fetchFreshPropertyDetails(identifier) {
+async function fetchFreshPropertyDetails(identifier, requestId) {
   const supabase = getSupabaseClient()
 
   const propertyResult = await supabase
@@ -171,14 +178,16 @@ async function fetchFreshPropertyDetails(identifier) {
         )
         .eq('property_id', property.id)
         .maybeSingle(),
-      fetchSimilarProperties(supabase, property),
+      fetchSimilarProperties(supabase, property, requestId),
     ])
 
   if (settingsResult.error) {
-    console.warn(
-      '[public-property-details-api:settings]',
-      settingsResult.error
-    )
+    logger.warn('Public property payment settings lookup failed', {
+      route: '/api/public/properties/[id]',
+      requestId,
+      propertyId: property.id,
+      message: settingsResult.error?.message,
+    })
   }
 
   const response = {
@@ -214,7 +223,7 @@ async function fetchFreshPropertyDetails(identifier) {
   return response
 }
 
-async function getPropertyDetails(identifier) {
+async function getPropertyDetails(identifier, requestId) {
   const cachedEntry = propertyCache.get(identifier)
   const now = Date.now()
 
@@ -230,7 +239,7 @@ async function getPropertyDetails(identifier) {
   }
 
   if (!inFlightRequests.has(identifier)) {
-    const request = fetchFreshPropertyDetails(identifier)
+    const request = fetchFreshPropertyDetails(identifier, requestId)
       .finally(() => {
         inFlightRequests.delete(identifier)
       })
@@ -265,6 +274,8 @@ async function getPropertyDetails(identifier) {
 }
 
 export default async function handler(req, res) {
+  const requestId = attachRequestContext(req, res)
+
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET')
 
@@ -284,7 +295,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await getPropertyDetails(identifier)
+    const result = await getPropertyDetails(identifier, requestId)
 
     res.setHeader(
       'Cache-Control',
@@ -299,7 +310,12 @@ export default async function handler(req, res) {
 
     return res.status(200).json(result.data)
   } catch (error) {
-    console.error('[public-property-details-api]', error)
+    logger.error('Public property details request failed', error, {
+      route: '/api/public/properties/[id]',
+      requestId,
+      identifier,
+      statusCode: error?.statusCode,
+    })
 
     res.setHeader('Cache-Control', 'no-store')
 

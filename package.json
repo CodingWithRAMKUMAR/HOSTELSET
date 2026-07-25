@@ -1,43 +1,46 @@
 {
-  "name": "hostelset",
-  "version": "2.0.0",
-  "private": true,
-  "engines": {
-    "node": "24.x"
-  },
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "test": "node scripts/rent-routing-tests.cjs",
-    "clean:next": "node scripts/clean-next-cache.mjs",
-    "staging:check": "node scripts/staging-check.mjs",
-    "staging:seed": "node scripts/staging-seed.mjs",
-    "test:reliability": "node scripts/reliability-tests.cjs",
-    "start": "next start",
-    "test:e2e": "playwright test --config=playwright.config.js",
-    "test:e2e:headed": "playwright test --config=playwright.config.js --headed",
-    "test:e2e:production": "playwright test --config=playwright.production.config.js",
-    "test:e2e:production:headed": "playwright test --config=playwright.production.config.js --headed"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.39.8",
-    "framer-motion": "^10.16.16",
-    "leaflet": "^1.9.4",
-    "next": "15.5.19",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-hot-toast": "^2.4.1",
-    "react-leaflet": "^4.2.1",
-    "recharts": "^2.15.4"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.61.1",
-    "@types/node": "^26.1.1",
-    "autoprefixer": "^10.4.16",
-    "postcss": "8.5.15",
-    "tailwindcss": "^3.4.0"
-  },
-  "overrides": {
-    "postcss": "8.5.15"
-  }
+    "name":  "hostelset",
+    "version":  "2.0.0",
+    "private":  true,
+    "engines":  {
+                    "node":  "24.x"
+                },
+    "scripts":  {
+                    "dev":  "next dev",
+                    "build":  "next build",
+                    "test":  "node scripts/rent-routing-tests.cjs",
+                    "clean:next":  "node scripts/clean-next-cache.mjs",
+                    "staging:check":  "node scripts/staging-check.mjs",
+                    "staging:seed":  "node scripts/staging-seed.mjs",
+                    "test:reliability":  "node scripts/reliability-tests.cjs",
+                    "start":  "next start",
+                    "test:e2e":  "playwright test --config=playwright.config.js",
+                    "test:e2e:headed":  "playwright test --config=playwright.config.js --headed",
+                    "test:e2e:production":  "playwright test --config=playwright.production.config.js",
+                    "test:e2e:production:headed":  "playwright test --config=playwright.production.config.js --headed",
+                    "test:monitoring":  "node scripts/logger-monitoring-tests.cjs",
+                    "test:request-context":  "node scripts/request-context-tests.cjs",
+                    "test:health":  "node scripts/health-endpoint-tests.cjs"
+                },
+    "dependencies":  {
+                         "@supabase/supabase-js":  "^2.39.8",
+                         "framer-motion":  "^10.16.16",
+                         "leaflet":  "^1.9.4",
+                         "next":  "15.5.19",
+                         "react":  "18.3.1",
+                         "react-dom":  "18.3.1",
+                         "react-hot-toast":  "^2.4.1",
+                         "react-leaflet":  "^4.2.1",
+                         "recharts":  "^2.15.4"
+                     },
+    "devDependencies":  {
+                            "@playwright/test":  "^1.61.1",
+                            "@types/node":  "^26.1.1",
+                            "autoprefixer":  "^10.4.16",
+                            "postcss":  "8.5.15",
+                            "tailwindcss":  "^3.4.0"
+                        },
+    "overrides":  {
+                      "postcss":  "8.5.15"
+                  }
 }
