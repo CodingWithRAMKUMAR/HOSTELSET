@@ -13,7 +13,11 @@
     "staging:check": "node scripts/staging-check.mjs",
     "staging:seed": "node scripts/staging-seed.mjs",
     "test:reliability": "node scripts/reliability-tests.cjs",
-    "start": "next start"
+    "start": "next start",
+    "test:e2e": "playwright test --config=playwright.config.js",
+    "test:e2e:headed": "playwright test --config=playwright.config.js --headed",
+    "test:e2e:production": "playwright test --config=playwright.production.config.js",
+    "test:e2e:production:headed": "playwright test --config=playwright.production.config.js --headed"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.8",
@@ -27,6 +31,8 @@
     "recharts": "^2.15.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1",
     "autoprefixer": "^10.4.16",
     "postcss": "8.5.15",
     "tailwindcss": "^3.4.0"

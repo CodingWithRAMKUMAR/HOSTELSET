@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -48,6 +48,69 @@ export function useVacate(tenant, setTenant, initialVacateRequests = [], snapsho
     applyVacateRequests(data || []);
   };
 
+  const patchVacateRealtime = payload => {
+    const changedRequest = payload.new || payload.old;
+    if (!changedRequest || changedRequest.tenant_id !== tenant?.id) return;
+
+    const eventType = String(payload.eventType || '').toUpperCase();
+    const nextRequest = payload.new || null;
+
+    setVacateLoaded(true);
+
+    if (eventType === 'DELETE') {
+      setExistingVacateRequest(current =>
+        current?.id === changedRequest.id ? null : current
+      );
+      setLastVacateDecision(current =>
+        current?.id === changedRequest.id ? null : current
+      );
+      setCancelBlockedReason('');
+      return;
+    }
+
+    if (!nextRequest) return;
+
+    if (['pending', 'approved'].includes(nextRequest.status)) {
+      setExistingVacateRequest(nextRequest);
+      setLastVacateDecision(null);
+      loadCancellationStatus(nextRequest);
+    } else {
+      setExistingVacateRequest(current =>
+        current?.id === nextRequest.id ? null : current
+      );
+      setCancelBlockedReason('');
+
+      if (nextRequest.status === 'rejected') {
+        setLastVacateDecision(nextRequest);
+      } else {
+        setLastVacateDecision(current =>
+          current?.id === nextRequest.id ? null : current
+        );
+      }
+    }
+
+    if (eventType !== 'UPDATE') return;
+
+    if (nextRequest.status === 'approved') {
+      setTenant(prev => ({
+        ...prev,
+        status: 'notice_period',
+        check_out_requested: true,
+        notice_period_start: new Date().toISOString().split('T')[0],
+        notice_period_end: nextRequest.expected_check_out,
+      }));
+
+      toast.success('✅ Your vacate request was approved!');
+    } else if (nextRequest.status === 'rejected') {
+      toast.error(
+        `Your vacate request was rejected.${
+          nextRequest.rejection_reason
+            ? ` ${nextRequest.rejection_reason}`
+            : ''
+        }`
+      );
+    }
+  };
   const cancelVacateRequest = async () => {
     if (isSubmitting) return;
     if (!existingVacateRequest) { toast.error('No vacate request to cancel.'); return; }
@@ -89,14 +152,8 @@ export function useVacate(tenant, setTenant, initialVacateRequests = [], snapsho
       loadVacate();
     }
     const channel = supabase.channel(`vacate-tenant-isolated:${tenant.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'check_out_requests', filter:`tenant_id=eq.${tenant.id}` }, (payload) => {
-        const changedRequest = payload.new || payload.old;
-        if (changedRequest?.tenant_id === tenant.id && payload.eventType === 'UPDATE') {
-          if (payload.new.status === 'approved') { setTenant(prev => ({ ...prev, status:'notice_period', check_out_requested:true, notice_period_start:new Date().toISOString().split('T')[0], notice_period_end:payload.new.expected_check_out })); toast.success('✅ Your vacate request was approved!'); }
-          else if (payload.new.status === 'rejected') { toast.error(`Your vacate request was rejected.${payload.new.rejection_reason ? ` ${payload.new.rejection_reason}` : ''}`); }
-        }
-        loadVacate();
-      }).subscribe();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'check_out_requests', filter:`tenant_id=eq.${tenant.id}` }, patchVacateRealtime)
+      .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [tenant?.id, snapshotLoaded]);
 

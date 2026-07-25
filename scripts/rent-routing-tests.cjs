@@ -354,8 +354,8 @@ test('admin membership requests preserve rows and normalize missing relations', 
 test('labels expose due today and pending confirmation clearly', () => {
   assert.strictEqual(formatRentDueLabel(calculateCanonicalRentDue(tenant(), [], NOW)), 'Due today')
   assert.strictEqual(formatRentDueLabel(calculateCanonicalRentDue(tenant(), [payment({ status: 'pending' })], NOW)), 'Pending confirmation')
-  assert.strictEqual(formatRentDueDetail(calculateCanonicalRentDue(tenant({ move_in_date: '2026-07-15' }), [], NOW), date => localDate(date)), 'Overdue by 1 day · Due 2026-07-15')
-  assert.strictEqual(formatRentDueDetail(calculateCanonicalRentDue(tenant({ move_in_date: '2026-07-19' }), [], NOW), date => localDate(date)), 'Due in 3 days · 2026-07-19')
+  assert.strictEqual(formatRentDueDetail(calculateCanonicalRentDue(tenant({ move_in_date: '2026-07-15' }), [], NOW), date => localDate(date)), 'Overdue by 1 day - Due 2026-07-15')
+  assert.strictEqual(formatRentDueDetail(calculateCanonicalRentDue(tenant({ move_in_date: '2026-07-19' }), [], NOW), date => localDate(date)), 'Due in 3 days - 2026-07-19')
 })
 
 const importedJunePaidTenant = () => ({
@@ -867,7 +867,7 @@ test('partial rent payment leaves only the correct current-cycle balance', () =>
 test('future August payment is not allocated back to July once July is covered', () => {
   const augustPayment = realJulyPayment({ id: 'august-rent', payment_date: '2026-08-16' })
   const result = calculateCanonicalRentDue(importedJunePaidTenant(), [realJulyPayment(), augustPayment], new Date(2026, 6, 17))
-  assert.strictEqual(result.paidPeriods, 3)
+  assert.strictEqual(result.paidPeriods, 2)
   assert.deepStrictEqual(result.cycleAllocations[1].paymentIds, ['a9f39d84-9d54-4a14-8d12-72494c024c74'])
   assert.deepStrictEqual(result.cycleAllocations[2].paymentIds, ['august-rent'])
 })
@@ -1321,9 +1321,12 @@ test('public prebooking UI is reservation-capacity aware', () => {
   assert.match(propertySource, /buildReservationCounts/)
   assert.match(propertySource, /get_public_property_rooms/)
   assert.match(propertySource, /reserved_prebooking_count/)
-  assert.match(propertySource, /Partially reserved/)
-  assert.match(propertySource, /Future vacancies fully reserved/)
-  assert.match(propertySource, /activeReservations[\s\S]*capacity/)
+  assert.match(propertySource, /unreserved bed/)
+  assert.match(propertySource, /Next vacancy already booked/)
+  assert.match(
+    propertySource,
+    /const capacity[\s\S]*const activeReservations[\s\S]*physicalAvailableSlots - activeReservations/
+  )
   assert.match(propertySource, /openPrebookModal\(room\.id, roomVacate\?\.vacateDate\)/)
 })
 

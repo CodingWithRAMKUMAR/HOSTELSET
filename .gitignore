@@ -24,3 +24,12 @@ prebooking-occupancy-audit.txt
 rent-cycle-room-change-audit.txt
 tenant-create-audit.txt
 tenant-table-usage.txt
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+/playwright-report-production/
+/test-results-production/

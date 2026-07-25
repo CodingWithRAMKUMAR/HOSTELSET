@@ -52,7 +52,7 @@ const EnterpriseAdminConsole = dynamic(() => import('../../components/admin/Ente
 const AdminAnalytics = dynamic(() => import('../../components/analytics/AdminAnalytics'));
 
 const ADMIN_VIEW_KEYS = new Set(['overview', 'enterprise', 'analytics', 'global-search', 'properties', 'tenants', 'owners', 'users', 'payments', 'prebookings', 'applications', 'approvedapps', 'complaints', 'vacate', 'roomchange', 'notices', 'membership'])
-const ADMIN_PERSISTENT_TABS = ['overview', 'membership', 'properties', 'owners', 'tenants', 'payments', 'applications', 'complaints', 'vacate', 'roomchange', 'notices', 'analytics', 'global-search', 'users', 'prebookings', 'approvedapps']
+const ADMIN_PERSISTENT_TABS = ['overview', 'enterprise', 'membership', 'properties', 'owners', 'tenants', 'payments', 'applications', 'complaints', 'vacate', 'roomchange', 'notices', 'analytics', 'global-search', 'users', 'prebookings', 'approvedapps']
 const ADMIN_OVERVIEW_QUEUE_TABS = new Set()
 const ADMIN_VIEW_ALIASES = {
   search: 'global-search',
@@ -937,8 +937,8 @@ function AdminDashboardContent() {
         <div className="hidden"><DashboardSectionNav label="Admin dashboard sections" items={tabs} activeId={activeTab} onSelect={openSection} /></div>
         <div ref={sectionRef} className="scroll-mt-28">
         {/* ----- OVERVIEW ----- */}
-        {activeTab === 'enterprise' && (
-          <AdminTabPanel tab="enterprise" active>
+        {mountedTabs.has('enterprise') && (
+          <AdminTabPanel tab="enterprise" active={activeTab === 'enterprise'}>
             <EnterpriseAdminConsole />
           </AdminTabPanel>
         )}
@@ -1431,4 +1431,3 @@ export default function AdminDashboard() {
     </AdminProvider>
   );
 }
-
