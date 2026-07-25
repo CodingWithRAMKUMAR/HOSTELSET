@@ -33,3 +33,5 @@ tenant-table-usage.txt
 /playwright/.auth/
 /playwright-report-production/
 /test-results-production/
+
+supabase/.branches/
