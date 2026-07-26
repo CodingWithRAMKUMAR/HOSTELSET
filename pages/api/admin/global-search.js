@@ -3,6 +3,8 @@ import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { normalizeBloodGroup } from '../../../lib/bloodGroups'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 
 const MAX_PER_GROUP = 5
 
@@ -10,6 +12,13 @@ const safeTerm = value => String(value || '').trim().slice(0, 80).replace(/[%_,(
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/admin/global-search',
+    requestId,
+    reportServerErrors: false,
+  })
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({ error: 'Method not allowed' }) }
   if (!supabaseAdmin) return res.status(503).json({ error: 'Search service is unavailable' })
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
@@ -51,6 +60,7 @@ export default async function handler(req, res) {
     logger.error('Admin global search query failed', failed.error, {
       route: '/api/admin/global-search',
       queryLength: q.length,
+      requestId,
     })
 
     return res.status(500).json({ error: 'Search failed' })

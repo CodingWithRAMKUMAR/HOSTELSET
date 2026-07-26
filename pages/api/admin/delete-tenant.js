@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 import { convertReservedPrebooking } from '../../../lib/server/prebookingConversion'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i
@@ -10,6 +12,13 @@ export const config = { api: { bodyParser: { sizeLimit: '8kb' } } }
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/admin/delete-tenant',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
   if (!supabaseAdmin) return res.status(503).json({ error: 'Tenant archive service is unavailable' })
 
@@ -50,14 +59,14 @@ export default async function handler(req, res) {
       try {
         conversion = await convertReservedPrebooking({ caller, actorId: admin.id, roomId: data.room_id })
       } catch (conversionError) {
-        logger.warn('Tenant archived, but reserved pre-booking conversion did not complete', { message: conversionError.message, roomId: data.room_id })
+        logger.warn('Tenant archived, but reserved pre-booking conversion did not complete', { message: conversionError.message, roomId: data.room_id, requestId })
         conversion = { converted: false, error: conversionError.message || 'Pre-booking conversion failed' }
       }
     }
 
     return res.status(200).json({ success: true, archived: true, result: data || null, conversion })
   } catch (error) {
-    logger.error('Admin tenant archive failed', error, { route: '/api/admin/delete-tenant', tenantId })
+    logger.error('Admin tenant archive failed', error, { route: '/api/admin/delete-tenant', tenantId, requestId })
     const rawMessage = String(error?.message || '')
     const lifecycleMismatch = /constraint|tenants_status_check|violates/i.test(rawMessage)
     const message = lifecycleMismatch

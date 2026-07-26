@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin';
 import { fetchWithTimeout } from '../../../lib/fetchWithTimeout';
 import { logger } from '../../../lib/logger';
+import { attachRequestContext } from '../../../lib/server/requestContext';
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry';
 import { setPrivateApiResponse } from '../../../lib/server/publicApiSecurity';
 
 const escapeHtml = (value) => String(value || '').replace(/[&<>'"]/g, (character) => ({
@@ -9,6 +11,13 @@ const escapeHtml = (value) => String(value || '').replace(/[&<>'"]/g, (character
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res);
+  const requestId = attachRequestContext(req, res);
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/admin/send-renewal-email',
+    requestId,
+    reportServerErrors: false,
+  });
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!supabaseAdmin) return res.status(500).json({ error: 'Server is not configured' });
 
@@ -59,7 +68,7 @@ export default async function handler(req, res) {
     if (!response.ok) throw new Error(data.message || `Email service error (${response.status})`);
     return res.status(200).json({ success: true, message: 'Renewal email sent successfully' });
   } catch (error) {
-    logger.error('Renewal email failed', error, { route: '/api/admin/send-renewal-email' });
+    logger.error('Renewal email failed', error, { route: '/api/admin/send-renewal-email', requestId });
     const message = process.env.NODE_ENV === 'production'
       ? 'Unable to send renewal email'
       : error.message;

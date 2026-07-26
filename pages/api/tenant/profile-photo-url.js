@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { allowPostOnly, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 import { logger } from '../../../lib/logger'
+import { attachRequestContext } from '../../../lib/server/requestContext'
+import { attachRequestTelemetry } from '../../../lib/server/requestTelemetry'
 import { safeLegacyProfilePhotoPath, safeTenantProfilePhotoPath } from '../../../lib/profilePhoto'
 
 const COOKIE_NAME = 'hostelset_access_token'
@@ -37,6 +39,13 @@ function safePhotoPath(source, propertyId) {
 
 export default async function handler(req, res) {
   setPrivateApiResponse(res)
+  const requestId = attachRequestContext(req, res)
+
+  attachRequestTelemetry(req, res, {
+    route: '/api/tenant/profile-photo-url',
+    requestId,
+    reportServerErrors: false,
+  })
   if (!allowPostOnly(req, res) || !requireJson(req, res)) return
 
   try {
@@ -115,7 +124,7 @@ export default async function handler(req, res) {
     if (error || !data?.signedUrl) throw error || new Error('Signed URL was not returned')
     return res.status(200).json({ signedUrl: data.signedUrl })
   } catch (error) {
-    logger.error('Tenant profile photo signing failed', error, { route: '/api/tenant/profile-photo-url' })
+    logger.error('Tenant profile photo signing failed', error, { route: '/api/tenant/profile-photo-url', requestId })
     return res.status(500).json({ error: 'Unable to open profile photo. Please try again.' })
   }
 }
