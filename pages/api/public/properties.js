@@ -152,11 +152,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await getProperties(requestId)
+    const forceFresh = req.query.refresh === '1'
+
+    let result
+
+    if (forceFresh) {
+      if (!inFlightRequest) {
+        inFlightRequest = fetchFreshProperties().finally(() => {
+          inFlightRequest = null
+        })
+      }
+
+      result = {
+        data: await inFlightRequest,
+        cacheStatus: 'REFRESH',
+        stale: false,
+      }
+    } else {
+      result = await getProperties(requestId)
+    }
 
     res.setHeader(
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=300'
+      forceFresh
+        ? 'no-store'
+        : 'public, s-maxage=60, stale-while-revalidate=300'
     )
     res.setHeader('X-HostelSet-Cache', result.cacheStatus)
     res.setHeader(
