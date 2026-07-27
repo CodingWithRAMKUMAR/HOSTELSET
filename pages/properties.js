@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Head from 'next/head'
 import { motion } from 'framer-motion'
@@ -60,16 +60,11 @@ function distanceKm(origin, property) {
 }
 
 export default function PropertiesPage() {
-  const cachedPropertiesRef = useRef(null)
-  const getInitialProperties = () => {
-    if (!cachedPropertiesRef.current) cachedPropertiesRef.current = readBrowseCache()
-    return cachedPropertiesRef.current
-  }
-  const [properties, setProperties] = useState(getInitialProperties)
+  const [properties, setProperties] = useState([])
   const [cities, setCities] = useState([])
   const [selectedCity, setSelectedCity] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(() => getInitialProperties().length === 0)
+  const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [view, setView] = useState('list')
@@ -99,6 +94,7 @@ export default function PropertiesPage() {
       ? backgroundOrOptions
       : { background: Boolean(backgroundOrOptions) }
     const background = Boolean(options.background)
+    const forceFresh = Boolean(options.forceFresh)
     const reason = options.reason || (background ? 'background-refresh' : 'manual-refresh')
     if (inFlightRef.current) return inFlightRef.current
 
@@ -109,12 +105,18 @@ export default function PropertiesPage() {
       if (background) setRefreshing(true)
       if (!background) setLoadError('')
       try {
-        const response = await fetch('/api/public/properties', {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-          },
-        })
+        const response = await fetch(
+          forceFresh
+            ? '/api/public/properties?refresh=1'
+            : '/api/public/properties',
+          {
+            method: 'GET',
+            cache: forceFresh ? 'no-store' : 'default',
+            headers: {
+              Accept: 'application/json',
+            },
+          }
+        )
 
         const data = await response.json()
 
@@ -145,11 +147,24 @@ export default function PropertiesPage() {
   }, [properties.length])
 
   useEffect(() => {
-    if (properties.length) {
-      setCities([...new Set(properties.map(property => property.city).filter(Boolean))].sort())
-      markBrowsePerf('first-usable-property-list', `source=cache count=${properties.length}`)
+    const cachedProperties = readBrowseCache()
+
+    if (cachedProperties.length) {
+      setProperties(cachedProperties)
+      setCities(
+        [...new Set(cachedProperties.map(property => property.city).filter(Boolean))].sort()
+      )
+      setLoading(false)
+      markBrowsePerf(
+        'first-usable-property-list',
+        `source=cache count=${cachedProperties.length}`
+      )
     }
-    loadProperties({ background: properties.length > 0, reason: 'initial-load' })
+
+    loadProperties({
+      background: cachedProperties.length > 0,
+      reason: 'initial-load',
+    })
   }, [])
 
   useEffect(() => {
@@ -163,7 +178,7 @@ export default function PropertiesPage() {
     }
   }, [loadProperties])
 
-  useRealtimeRefresh('public:properties:availability', ['properties', 'rooms'], loadProperties, true, 120)
+  useRealtimeRefresh('public:properties:availability', ['properties', 'rooms'], options => loadProperties({ ...options, forceFresh: true }), true, 120)
 
   const useMyLocation = () => {
     if (!navigator.geolocation) { setLocationStatus('Location is not supported on this device.'); return }
