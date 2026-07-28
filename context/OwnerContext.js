@@ -201,7 +201,7 @@ export function OwnerProvider({ children }) {
             setLoading(false);
           }
           
-          const pendingAmount = tenantsWithRoomNumber.reduce((sum, tenant) => sum + Math.max(Number(tenant.pending_amount || 0), 0), 0);
+          const pendingAmount = tenantsWithRoomNumber.reduce((sum, tenant) => sum + (tenant.rentSummary?.hasUnpaidRent ? Math.max(Number(tenant.rentSummary.dueAmount || 0), 0) : 0), 0);
           const overdueCount = tenantsWithRoomNumber.filter(t => t.dueStatus.status === 'overdue').length;
           const noticePeriodCount = tenantsWithRoomNumber.filter(t => t.status === 'notice_period').length;
           const pendingPaymentCount = tenantsWithRoomNumber.filter(t => t.status === 'payment_pending').length;
