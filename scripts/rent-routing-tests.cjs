@@ -188,6 +188,48 @@ test('partial confirmed payment leaves remaining due amount', () => {
   assert.strictEqual(result.dueAmount, 600)
 })
 
+test('imported tenant can clear multiple already-due cycles without paying future rent', () => {
+  const row = tenant({
+    move_in_date: '2026-03-28',
+    rent_amount: 7500,
+    rent_status: 'paid',
+    pending_amount: 0,
+    paid_through_date: '2026-05-28',
+    created_at: '2026-07-27T12:02:55.358854',
+  })
+
+  const payments = [
+    payment({
+      id: 'june-rent',
+      amount: 7500,
+      status: 'success',
+      payment_method: 'upi',
+      payment_date: '2026-07-28',
+      created_at: '2026-07-28T05:51:49.282933',
+    }),
+    payment({
+      id: 'july-rent',
+      amount: 7500,
+      status: 'success',
+      payment_method: 'upi',
+      payment_date: '2026-07-28',
+      created_at: '2026-07-28T06:37:22.800161',
+    }),
+  ]
+
+  const result = calculateCanonicalRentDue(
+    row,
+    payments,
+    new Date(2026, 6, 28)
+  )
+  assert.strictEqual(result.baselinePaidPeriods, 3)
+  assert.strictEqual(result.paidPeriods, 5)
+  assert.strictEqual(result.status, 'paid')
+  assert.strictEqual(result.dueAmount, 0)
+  assert.strictEqual(result.currentCycleDueAmount, 0)
+  assert.strictEqual(localDate(result.paidThroughDate), '2026-07-28')
+  assert.strictEqual(localDate(result.nextDueDate), '2026-08-28')
+})
 test('pending payment proof only is pending confirmation, not paid', () => {
   const result = calculateCanonicalRentDue(tenant(), [payment({ status: 'payment_pending' })], NOW)
   assert.strictEqual(result.status, 'pending_confirmation')
