@@ -65,6 +65,9 @@ jobs:
       - name: Run public API security tests
         run: npm run test:api-security
 
+      - name: Run fetch timeout tests
+        run: npm run test:fetch-timeout
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 

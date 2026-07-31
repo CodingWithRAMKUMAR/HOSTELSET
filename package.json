@@ -21,7 +21,8 @@
                     "test:monitoring":  "node scripts/logger-monitoring-tests.cjs",
                     "test:request-context":  "node scripts/request-context-tests.cjs",
                     "test:health":  "node scripts/health-endpoint-tests.cjs",
-                    "test:api-security":  "node scripts/public-api-security-tests.cjs"
+                    "test:api-security":  "node scripts/public-api-security-tests.cjs",
+                    "test:fetch-timeout":  "node scripts/fetch-with-timeout-tests.cjs"
                 },
     "dependencies":  {
                          "@supabase/supabase-js":  "^2.39.8",
