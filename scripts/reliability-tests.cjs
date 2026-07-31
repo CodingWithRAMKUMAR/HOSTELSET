@@ -5,6 +5,16 @@ const { calculateCanonicalRentDue, anchoredDate, formatRentDueLabel } = require(
 const { enrichTenantRentStatus, filterTenantsByRentStatus, summarizeTenantRentStatuses } = require('../lib/tenantRentStatus')
 const { resolveDashboardQuery, buildDashboardHref, dashboardHrefToPath, isCanonicalDashboardQuery } = require('../lib/dashboardRouting')
 const { normalizePrivateDocumentPath, createExpiringRequestCache } = require('../lib/privateDocument')
+const {
+  MAX_PROFILE_PHOTO_SIZE,
+  buildProfilePhotoPath,
+  getProfilePhotoExtension,
+  isIdentityDocumentPath,
+  safeLegacyProfilePhotoPath,
+  safeProfilePhotoPath,
+  safeTenantProfilePhotoPath,
+  validateProfilePhotoUpload,
+} = require('../lib/profilePhoto')
 const { isDashboardPath } = require('../lib/routeScope')
 const { normalizeIndianPhone, phoneLoginVariants } = require('../lib/server/phoneLogin')
 
@@ -173,6 +183,215 @@ assert.equal(
   null,
   'paths longer than 1024 characters must be rejected'
 )
+
+// Profile photo MIME and upload-size boundaries.
+assert.equal(getProfilePhotoExtension('image/jpeg'), 'jpg')
+assert.equal(getProfilePhotoExtension('image/png'), 'png')
+assert.equal(getProfilePhotoExtension('image/webp'), 'webp')
+assert.equal(getProfilePhotoExtension('image/jpg'), null)
+assert.equal(getProfilePhotoExtension('image/gif'), null)
+assert.equal(getProfilePhotoExtension('image/svg+xml'), null)
+
+assert.deepEqual(
+  validateProfilePhotoUpload({ contentType: 'image/jpeg', size: 1 }),
+  { ok: true, extension: 'jpg' }
+)
+assert.deepEqual(
+  validateProfilePhotoUpload({
+    contentType: 'image/webp',
+    size: MAX_PROFILE_PHOTO_SIZE,
+  }),
+  { ok: true, extension: 'webp' }
+)
+
+for (const contentType of [
+  '',
+  'image/jpg',
+  'image/gif',
+  'image/svg+xml',
+  'application/pdf',
+  'IMAGE/JPEG',
+]) {
+  assert.equal(
+    validateProfilePhotoUpload({ contentType, size: 1024 }).ok,
+    false,
+    'unsupported profile photo MIME types must be rejected'
+  )
+}
+
+for (const size of [
+  undefined,
+  null,
+  NaN,
+  Infinity,
+  -1,
+  0,
+  1.5,
+  MAX_PROFILE_PHOTO_SIZE + 1,
+]) {
+  assert.equal(
+    validateProfilePhotoUpload({ contentType: 'image/png', size }).ok,
+    false,
+    'profile photo size must be a safe integer within the byte limit'
+  )
+}
+
+// Profile photo path ownership and identity boundaries.
+const profilePropertyId = '11111111-1111-4111-8111-111111111111'
+const profileTenantId = '22222222-2222-4222-8222-222222222222'
+const otherProfileTenantId = '33333333-3333-4333-8333-333333333333'
+const tenantProfilePath =
+  '11111111-1111-4111-8111-111111111111/profile-photos/22222222-2222-4222-8222-222222222222/avatar.png'
+const generatedProfilePhotoPath = buildProfilePhotoPath(
+  profilePropertyId,
+  profileTenantId,
+  'image/jpeg'
+)
+
+assert.equal(
+  generatedProfilePhotoPath.startsWith(
+    '11111111-1111-4111-8111-111111111111/profile-photos/22222222-2222-4222-8222-222222222222/'
+  ),
+  true
+)
+assert.equal(generatedProfilePhotoPath.endsWith('.jpg'), true)
+assert.equal(buildProfilePhotoPath('', profileTenantId, 'image/jpeg'), '')
+assert.equal(buildProfilePhotoPath(profilePropertyId, '', 'image/jpeg'), '')
+assert.equal(buildProfilePhotoPath(profilePropertyId, profileTenantId, 'image/gif'), '')
+
+assert.equal(
+  safeProfilePhotoPath('  ' + tenantProfilePath + '  ', profilePropertyId),
+  tenantProfilePath,
+  'valid profile photo paths must be trimmed and preserved'
+)
+assert.equal(
+  safeTenantProfilePhotoPath(tenantProfilePath, profilePropertyId, profileTenantId),
+  tenantProfilePath
+)
+assert.equal(
+  safeTenantProfilePhotoPath(tenantProfilePath, profilePropertyId),
+  tenantProfilePath
+)
+assert.equal(
+  safeTenantProfilePhotoPath(tenantProfilePath, profilePropertyId, otherProfileTenantId),
+  '',
+  'a tenant-specific path must not cross tenant directories'
+)
+assert.equal(
+  safeProfilePhotoPath(tenantProfilePath, '44444444-4444-4444-8444-444444444444'),
+  '',
+  'a profile photo path must not cross property directories'
+)
+
+for (const unsafePath of [
+  '',
+  '/' + tenantProfilePath,
+  'https://project.supabase.co/' + tenantProfilePath,
+  'blob:' + tenantProfilePath,
+  'data:image/png,' + tenantProfilePath,
+  profilePropertyId + '/profile-photos/' + profileTenantId + '/../secret.png',
+]) {
+  assert.equal(
+    safeProfilePhotoPath(unsafePath, profilePropertyId),
+    '',
+    'unsafe profile photo path forms must be rejected'
+  )
+}
+
+const encodedTraversalPhotoPath =
+  '11111111-1111-4111-8111-111111111111/profile-photos/22222222-2222-4222-8222-222222222222/%2e%2e/other/avatar.png'
+assert.equal(
+  safeTenantProfilePhotoPath(
+    encodedTraversalPhotoPath,
+    profilePropertyId,
+    profileTenantId
+  ),
+  '',
+  'encoded traversal must not pass tenant profile photo path validation'
+)
+
+const validEncodedProfilePhotoPath =
+  '11111111-1111-4111-8111-111111111111/profile-photos/22222222-2222-4222-8222-222222222222/avatar%2D1.png'
+assert.equal(
+  safeTenantProfilePhotoPath(
+    validEncodedProfilePhotoPath,
+    profilePropertyId,
+    profileTenantId
+  ),
+  validEncodedProfilePhotoPath,
+  'valid encoded filename characters must remain supported'
+)
+
+const malformedEncodedProfilePhotoPath =
+  '11111111-1111-4111-8111-111111111111/profile-photos/22222222-2222-4222-8222-222222222222/avatar%ZZ.png'
+assert.equal(
+  safeTenantProfilePhotoPath(
+    malformedEncodedProfilePhotoPath,
+    profilePropertyId,
+    profileTenantId
+  ),
+  '',
+  'malformed profile photo encoding must be rejected'
+)
+
+const importedProfilePhotoPath =
+  '11111111-1111-4111-8111-111111111111/imports/photos/import-avatar.webp'
+const applicationProfilePhotoPath =
+  '11111111-1111-4111-8111-111111111111/photos/application-avatar.jpg'
+assert.equal(
+  safeLegacyProfilePhotoPath(
+    importedProfilePhotoPath,
+    profilePropertyId,
+    'existing_tenant_import'
+  ),
+  importedProfilePhotoPath
+)
+assert.equal(
+  safeLegacyProfilePhotoPath(
+    applicationProfilePhotoPath,
+    profilePropertyId,
+    'application'
+  ),
+  applicationProfilePhotoPath
+)
+assert.equal(
+  safeLegacyProfilePhotoPath(
+    applicationProfilePhotoPath,
+    profilePropertyId,
+    'pre_booking'
+  ),
+  applicationProfilePhotoPath
+)
+assert.equal(
+  safeLegacyProfilePhotoPath(
+    importedProfilePhotoPath,
+    profilePropertyId,
+    'application'
+  ),
+  ''
+)
+assert.equal(
+  safeLegacyProfilePhotoPath(
+    applicationProfilePhotoPath,
+    profilePropertyId,
+    'existing_tenant_import'
+  ),
+  ''
+)
+
+for (const identityPath of [
+  profilePropertyId + '/photos/identity/photo.jpg',
+  profilePropertyId + '/photos/id-proof/photo.jpg',
+  profilePropertyId + '/photos/aadhaar/photo.jpg',
+  profilePropertyId + '/photos/aadhar/photo.jpg',
+]) {
+  assert.equal(isIdentityDocumentPath(identityPath), true)
+  assert.equal(
+    safeLegacyProfilePhotoPath(identityPath, profilePropertyId, 'application'),
+    '',
+    'identity documents must never be exposed as profile photos'
+  )
+}
 
 assert.equal(dashboardHrefToPath(buildDashboardHref('owner', 'overview')), '/owner/dashboard')
 assert.equal(dashboardHrefToPath(buildDashboardHref('owner', 'imports')), '/owner/dashboard?tab=existing-imports')
