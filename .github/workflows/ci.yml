@@ -71,6 +71,9 @@ jobs:
       - name: Run profile photo client tests
         run: npm run test:profile-photo-client
 
+      - name: Run application URL tests
+        run: npm run test:app-url
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
