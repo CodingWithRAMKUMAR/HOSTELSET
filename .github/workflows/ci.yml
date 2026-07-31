@@ -62,6 +62,9 @@ jobs:
       - name: Run reliability tests
         run: npm run test:reliability
 
+      - name: Run public API security tests
+        run: npm run test:api-security
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
