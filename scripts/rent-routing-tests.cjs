@@ -2,17 +2,26 @@ const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
 const {
+  businessTodayIsoDate,
   calculateCanonicalRentDue,
   currentRentDueDateFromMoveIn,
   formatRentDueDetail,
   formatRentDueLabel,
   isConfirmedRent,
+  isPendingRentPayment,
   nextRentDueDateFromMoveIn,
+  parseDateOnly,
   previousRentDueDateFromMoveIn,
+  uniqueConfirmedRentPayments,
+  uniquePendingRentPayments,
 } = require('../lib/rentDue')
 const {
   classifyTenantRent,
   enrichTenantRentStatus,
+  filterTenantsByRentBucket,
+  getTenantRentCounts,
+  isActiveTenant,
+  summarizeTenantRentStatuses,
 } = require('../lib/tenantRentStatus')
 const {
   buildDashboardHref,
@@ -236,6 +245,55 @@ test('pending payment proof only is pending confirmation, not paid', () => {
   assert.strictEqual(result.dueAmount, 1000)
 })
 
+test('payment field aliases classify rent without counting non-rent methods', () => {
+  const confirmedAlias = {
+    payment_status: 'SUCCESS',
+    paymentType: 'UPI',
+    amount: 1000,
+  }
+  const pendingAlias = {
+    payment_status: 'PENDING_OWNER_VERIFICATION',
+    method: 'upi',
+    amount: 1000,
+  }
+
+  assert.strictEqual(isConfirmedRent(confirmedAlias), true)
+  assert.strictEqual(isPendingRentPayment(pendingAlias), true)
+  assert.strictEqual(
+    isConfirmedRent({ ...confirmedAlias, paymentType: 'APPLICATION_FEE' }),
+    false
+  )
+  assert.strictEqual(
+    isPendingRentPayment({ ...pendingAlias, method: undefined, type: 'DEPOSIT' }),
+    false
+  )
+})
+
+test('rent payment helpers deduplicate confirmed and pending records', () => {
+  const confirmed = {
+    payment_status: 'success',
+    method: 'upi',
+    amount: 1000,
+    payment_date: '2026-07-16',
+  }
+  const pending = {
+    id: 'pending-payment-1',
+    payment_status: 'pending',
+    payment_type: 'rent',
+    amount: 1000,
+    payment_date: '2026-07-16',
+  }
+
+  assert.strictEqual(
+    uniqueConfirmedRentPayments([confirmed, { ...confirmed }]).length,
+    1
+  )
+  assert.strictEqual(
+    uniquePendingRentPayments([pending, { ...pending }]).length,
+    1
+  )
+})
+
 test('successful security deposit does not count as monthly rent', () => {
   const result = calculateCanonicalRentDue(tenant(), [payment({ payment_method: 'security_deposit' })], NOW)
   assert.strictEqual(result.status, 'due_today')
@@ -265,12 +323,112 @@ test('month-end anchor clamps to the last valid day', () => {
   assert.strictEqual(localDate(result.dueDate), '2026-02-28')
 })
 
+test('date-only parsing accepts leap day and rejects invalid calendar dates', () => {
+  assert.deepStrictEqual(
+    parseDateOnly('2024-02-29'),
+    { year: 2024, month: 2, day: 29 }
+  )
+  assert.strictEqual(parseDateOnly('2026-02-29'), null)
+  assert.strictEqual(parseDateOnly('2026-04-31'), null)
+  assert.strictEqual(parseDateOnly('not-a-date'), null)
+})
+
+test('business date changes exactly at midnight in Asia Kolkata', () => {
+  assert.strictEqual(
+    businessTodayIsoDate(new Date('2026-07-15T18:29:59.000Z')),
+    '2026-07-15'
+  )
+  assert.strictEqual(
+    businessTodayIsoDate(new Date('2026-07-15T18:30:00.000Z')),
+    '2026-07-16'
+  )
+})
+
 test('owner and tenant classification helpers return the same category', () => {
   const row = tenant({ move_in_date: '2026-07-16' })
   const owner = classifyTenantRent(row, [], NOW)
   const tenantSide = enrichTenantRentStatus(row, [], NOW)
   assert.strictEqual(owner.category, tenantSide.category)
   assert.strictEqual(owner.category, 'due')
+})
+
+test('active tenant helper accepts operational statuses and rejects closed statuses', () => {
+  assert.strictEqual(isActiveTenant({ status: 'active' }), true)
+  assert.strictEqual(isActiveTenant({ status: 'notice_period' }), true)
+  assert.strictEqual(isActiveTenant({ status: 'payment_pending' }), true)
+  assert.strictEqual(isActiveTenant({ status: 'inactive' }), false)
+  assert.strictEqual(isActiveTenant({ status: 'archived' }), false)
+})
+
+test('tenant rent summary counts active buckets and pending amounts', () => {
+  const rows = [
+    {
+      id: 'paid',
+      rentSummary: {
+        category: 'paid',
+        isActive: true,
+        hasUnpaidRent: false,
+        dueAmount: 0,
+      },
+    },
+    {
+      id: 'due',
+      rentSummary: {
+        category: 'due',
+        isActive: true,
+        hasUnpaidRent: true,
+        dueAmount: 600,
+      },
+    },
+    {
+      id: 'upcoming',
+      rentSummary: {
+        category: 'upcoming',
+        isActive: true,
+        hasUnpaidRent: true,
+        dueAmount: 1000,
+      },
+    },
+    {
+      id: 'pending',
+      rentSummary: {
+        category: 'pending_confirmation',
+        isActive: true,
+        hasUnpaidRent: true,
+        dueAmount: 1000,
+      },
+    },
+    {
+      id: 'inactive',
+      rentSummary: {
+        category: 'inactive',
+        isActive: false,
+        hasUnpaidRent: false,
+        dueAmount: 0,
+      },
+    },
+  ]
+
+  assert.deepStrictEqual(summarizeTenantRentStatuses(rows), {
+    paid: 1,
+    due: 1,
+    upcoming: 1,
+    pending_confirmation: 1,
+    pendingAmount: 2600,
+    total: 4,
+  })
+  assert.deepStrictEqual(getTenantRentCounts(rows), {
+    all: 4,
+    paid: 1,
+    due: 1,
+    upcoming: 1,
+    pending_confirmation: 1,
+  })
+  assert.deepStrictEqual(
+    filterTenantsByRentBucket(rows, 'due').map(row => row.id),
+    ['due']
+  )
+  assert.strictEqual(filterTenantsByRentBucket(rows, 'all').length, 4)
 })
 
 test('owner valid tab generates canonical URL', () => {
