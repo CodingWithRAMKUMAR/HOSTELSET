@@ -99,6 +99,81 @@ assert.equal(normalizePrivateDocumentPath('tenant-documents/123e4567-e89b-42d3-a
 assert.equal(normalizePrivateDocumentPath('https://project.supabase.co/storage/v1/object/public/tenant-documents/123e4567-e89b-42d3-a456-426614174000/imports/identity/id.pdf', { supabaseUrl:'https://project.supabase.co' }),'123e4567-e89b-42d3-a456-426614174000/imports/identity/id.pdf')
 for (const bad of ['', 'https://example.com/a', 'blob:x', 'data:image/png,x', '../secret', 'bad//path', 'bad?x=1']) assert.equal(normalizePrivateDocumentPath(bad),null)
 for (const bad of ['tenant-documents/../secret', 'https://project.supabase.co/storage/v1/object/public/wrong-bucket/a.png', 'https://project.supabase.co/storage/v1/object/sign/tenant-documents/a.png?token=temp', 'https://evil.supabase.co/storage/v1/object/public/tenant-documents/a.png']) assert.equal(normalizePrivateDocumentPath(bad, { supabaseUrl:'https://project.supabase.co' }),null)
+// Private document path normalization edge cases.
+for (const value of [null, undefined, 123, {}, []]) {
+  assert.equal(
+    normalizePrivateDocumentPath(value),
+    null,
+    'non-string document paths must be rejected'
+  )
+}
+
+assert.equal(
+  normalizePrivateDocumentPath('  /tenant-documents/property/payments/proof.png  '),
+  'property/payments/proof.png',
+  'whitespace, leading slashes, and the bucket prefix must be normalized'
+)
+
+assert.equal(
+  normalizePrivateDocumentPath(
+    'https://project.supabase.co/storage/v1/object/tenant-documents/property/imports/id.pdf',
+    { supabaseUrl: 'https://project.supabase.co' }
+  ),
+  'property/imports/id.pdf',
+  'legacy private storage URLs must normalize to an object path'
+)
+
+assert.equal(
+  normalizePrivateDocumentPath(
+    'https://project.supabase.co/storage/v1/object/public/tenant-documents/property/proof%2D1.png',
+    { supabaseUrl: 'https://project.supabase.co' }
+  ),
+  'property/proof-1.png',
+  'valid encoded path characters must be decoded'
+)
+
+assert.equal(
+  normalizePrivateDocumentPath(
+    'https://project.supabase.co/storage/v1/object/public/tenant-documents/property/%2e%2e/secret.pdf',
+    { supabaseUrl: 'https://project.supabase.co' }
+  ),
+  null,
+  'encoded traversal paths must be rejected'
+)
+
+assert.equal(
+  normalizePrivateDocumentPath(
+    'property-photos/property-1/front.png',
+    { bucket: 'property-photos' }
+  ),
+  'property-1/front.png',
+  'custom storage buckets must normalize correctly'
+)
+
+for (const value of [
+  'tenant-documents/folder/file name.pdf',
+  'tenant-documents/folder\\file.pdf',
+  'tenant-documents/folder/\u092B\u093E\u0907\u0932.pdf',
+]) {
+  assert.equal(
+    normalizePrivateDocumentPath(value),
+    null,
+    'unsupported path characters must be rejected'
+  )
+}
+
+const maxPrivateDocumentPath = 'a'.repeat(1024)
+assert.equal(
+  normalizePrivateDocumentPath(maxPrivateDocumentPath),
+  maxPrivateDocumentPath,
+  'a 1024-character path must remain valid'
+)
+assert.equal(
+  normalizePrivateDocumentPath('a'.repeat(1025)),
+  null,
+  'paths longer than 1024 characters must be rejected'
+)
+
 assert.equal(dashboardHrefToPath(buildDashboardHref('owner', 'overview')), '/owner/dashboard')
 assert.equal(dashboardHrefToPath(buildDashboardHref('owner', 'imports')), '/owner/dashboard?tab=existing-imports')
 assert.equal(dashboardHrefToPath(buildDashboardHref('owner', 'rooms')), '/owner/dashboard?tab=rooms')
@@ -452,5 +527,100 @@ assert.equal(/id_proof[^;]{0,120}profile_photo_path/.test(tenantPhotoUrlApi), fa
   assert.equal(calls, 1, 'concurrent signing requests must deduplicate')
   await cache.getOrLoad('missing', missing); assert.equal(calls, 1, 'missing objects must be negatively cached')
   now = 51; await cache.getOrLoad('missing', missing); assert.equal(calls, 2, 'negative cache must be bounded')
+  let successCacheNow = 0
+  let successCalls = 0
+  const successCache = createExpiringRequestCache({
+    successTtlMs: 100,
+    missingTtlMs: 50,
+    now: () => successCacheNow,
+  })
+  const loadSuccess = async () => {
+    successCalls += 1
+    return `signed-url-${successCalls}`
+  }
+
+  assert.equal(await successCache.getOrLoad('document', loadSuccess), 'signed-url-1')
+  assert.equal(await successCache.getOrLoad('document', loadSuccess), 'signed-url-1')
+  assert.equal(successCalls, 1, 'successful results must be cached')
+  successCacheNow = 99
+  assert.equal(await successCache.getOrLoad('document', loadSuccess), 'signed-url-1')
+  successCacheNow = 100
+  assert.equal(await successCache.getOrLoad('document', loadSuccess), 'signed-url-2')
+  assert.equal(successCalls, 2, 'successful cache entries must expire at their TTL')
+
+  let failureCalls = 0
+  const failureCache = createExpiringRequestCache({
+    successTtlMs: 100,
+    missingTtlMs: 50,
+  })
+  const failThenRecover = async () => {
+    failureCalls += 1
+    if (failureCalls === 1) throw new Error('expected loader failure')
+    return 'recovered-url'
+  }
+
+  await assert.rejects(
+    failureCache.getOrLoad('document', failThenRecover),
+    /expected loader failure/
+  )
+  assert.equal(
+    await failureCache.getOrLoad('document', failThenRecover),
+    'recovered-url',
+    'a rejected loader must be removed so the next request can retry'
+  )
+  assert.equal(failureCalls, 2)
+
+  let invalidationCalls = 0
+  const invalidationCache = createExpiringRequestCache({
+    successTtlMs: 100,
+    missingTtlMs: 50,
+  })
+  const loadInvalidationValue = async () => {
+    invalidationCalls += 1
+    return `value-${invalidationCalls}`
+  }
+
+  assert.equal(await invalidationCache.getOrLoad('first', loadInvalidationValue), 'value-1')
+  invalidationCache.delete('first')
+  assert.equal(await invalidationCache.getOrLoad('first', loadInvalidationValue), 'value-2')
+  assert.equal(await invalidationCache.getOrLoad('second', loadInvalidationValue), 'value-3')
+  invalidationCache.clear()
+  assert.equal(await invalidationCache.getOrLoad('first', loadInvalidationValue), 'value-4')
+  assert.equal(await invalidationCache.getOrLoad('second', loadInvalidationValue), 'value-5')
+  assert.equal(invalidationCalls, 5, 'delete and clear must invalidate cached values')
+
+  let resolveStaleValue
+  let markStaleRequestStarted
+  const staleRequestStarted = new Promise(resolve => {
+    markStaleRequestStarted = resolve
+  })
+  const staleValue = new Promise(resolve => {
+    resolveStaleValue = resolve
+  })
+  const raceCache = createExpiringRequestCache({
+    successTtlMs: 100,
+    missingTtlMs: 50,
+  })
+
+  const staleRequest = raceCache.getOrLoad('document', async () => {
+    markStaleRequestStarted()
+    return staleValue
+  })
+
+  await staleRequestStarted
+  raceCache.delete('document')
+  assert.equal(
+    await raceCache.getOrLoad('document', async () => 'fresh-url'),
+    'fresh-url'
+  )
+
+  resolveStaleValue('stale-url')
+  assert.equal(await staleRequest, 'stale-url')
+  assert.equal(
+    await raceCache.getOrLoad('document', async () => 'unexpected-url'),
+    'fresh-url',
+    'stale in-flight cache results must not overwrite refreshed values'
+  )
+
   console.log('Reliability helper tests passed')
 })().catch(error => { console.error(error); process.exitCode = 1 })
