@@ -68,6 +68,9 @@ jobs:
       - name: Run fetch timeout tests
         run: npm run test:fetch-timeout
 
+      - name: Run profile photo client tests
+        run: npm run test:profile-photo-client
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
