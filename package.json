@@ -24,7 +24,8 @@
                     "test:api-security":  "node scripts/public-api-security-tests.cjs",
                     "test:fetch-timeout":  "node scripts/fetch-with-timeout-tests.cjs",
                     "test:profile-photo-client":  "node scripts/profile-photo-client-tests.cjs",
-                    "test:app-url":  "node scripts/app-url-tests.cjs"
+                    "test:app-url":  "node scripts/app-url-tests.cjs",
+                    "test:property-slug":  "node scripts/property-slug-tests.cjs"
                 },
     "dependencies":  {
                          "@supabase/supabase-js":  "^2.39.8",

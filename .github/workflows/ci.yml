@@ -74,6 +74,9 @@ jobs:
       - name: Run application URL tests
         run: npm run test:app-url
 
+      - name: Run property slug tests
+        run: npm run test:property-slug
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
