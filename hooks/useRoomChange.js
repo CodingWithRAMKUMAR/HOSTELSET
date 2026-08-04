@@ -115,8 +115,16 @@ export function useRoomChange(tenant, refreshData, initialPendingRequest = null,
             if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
               setPendingRoomChangeRequest(null);
               setLastRoomChangeDecision(payload.new);
-              if (payload.new.status === 'approved') toast.success('✅ Your room change request was approved!');
-              else toast.error(`❌ Room change rejected${payload.new.rejection_reason ? `: ${payload.new.rejection_reason}` : '.'}`);
+              if (payload.new.status === 'approved') {
+                toast.success('✅ Your room change request was approved!');
+                void refreshData({
+                  background: true,
+                  force: true,
+                  reason: 'room-change-approved',
+                });
+              } else {
+                toast.error(`❌ Room change rejected${payload.new.rejection_reason ? `: ${payload.new.rejection_reason}` : '.'}`);
+              }
             }
           }
         }
@@ -130,7 +138,7 @@ export function useRoomChange(tenant, refreshData, initialPendingRequest = null,
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [tenant?.id, snapshotLoaded]);
+  }, [tenant?.id, snapshotLoaded, refreshData]);
 
   return {
     pendingRoomChangeRequest,
