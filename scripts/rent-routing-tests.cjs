@@ -503,6 +503,15 @@ test('tenant realtime hooks patch local state instead of core refreshing', () =>
   assert.doesNotMatch(source('hooks/usePayments.js'), /if \(payload\.eventType === 'UPDATE'[\s\S]{0,160}refreshData/)
 })
 
+test('approved room changes reconcile tenant core state', () => {
+  const hook = source('hooks/useRoomChange.js')
+
+  assert.match(
+    hook,
+    /payload\.new\.status === 'approved'[\s\S]*refreshData\(\{[\s\S]*force:\s*true[\s\S]*reason:\s*'room-change-approved'/
+  )
+})
+
 test('admin core stats load is cached and in-flight guarded', () => {
   const adminContextSource = source('context/AdminContext.js')
   assert.match(adminContextSource, /inFlightStatsRef/)
@@ -1014,6 +1023,94 @@ test('new non-imported tenant first payment still allocates to first cycle', () 
   assert.strictEqual(result.paidPeriods, 1)
   assert.strictEqual(localDate(result.currentCycleDueDate), '2026-07-16')
   assert.strictEqual(localDate(result.nextDueDate), '2026-08-16')
+})
+
+test('same-day higher-rent room change accepts split payments exactly', () => {
+  const row = tenant({
+    id: 'room-change-tenant',
+    move_in_date: '2026-08-04',
+    rent_amount: 14999,
+    rent_status: 'paid',
+    pending_amount: 0,
+    created_at: '2026-08-04T04:00:00.000Z',
+  })
+  const payments = [
+    payment({
+      id: 'old-room-rent',
+      tenant_id: row.id,
+      amount: 7500,
+      payment_date: '2026-08-04',
+    }),
+    payment({
+      id: 'room-rent-difference',
+      tenant_id: row.id,
+      amount: 7499,
+      payment_date: '2026-08-04',
+    }),
+  ]
+
+  const result = calculateCanonicalRentDue(
+    row,
+    payments,
+    new Date(2026, 7, 4, 12)
+  )
+
+  assert.strictEqual(result.status, 'paid')
+  assert.strictEqual(result.dueAmount, 0)
+  assert.strictEqual(localDate(result.nextDueDate), '2026-09-04')
+})
+
+test('fully funded future room-rent cycle is shown as paid in advance', () => {
+  const row = tenant({
+    id: 'room-change-tenant',
+    move_in_date: '2026-08-04',
+    rent_amount: 14999,
+    rent_status: 'paid',
+    pending_amount: 0,
+    created_at: '2026-08-04T04:00:00.000Z',
+  })
+  const payments = [
+    payment({
+      id: 'old-room-rent',
+      tenant_id: row.id,
+      amount: 7500,
+      payment_date: '2026-08-04',
+    }),
+    payment({
+      id: 'room-rent-difference',
+      tenant_id: row.id,
+      amount: 7499,
+      payment_date: '2026-08-04',
+    }),
+    payment({
+      id: 'false-one-rupee-collection',
+      tenant_id: row.id,
+      amount: 1,
+      payment_method: 'owner_collection',
+      payment_date: '2026-08-04',
+    }),
+    payment({
+      id: 'remaining-future-rent',
+      tenant_id: row.id,
+      amount: 14998,
+      payment_date: '2026-08-04',
+    }),
+  ]
+
+  const result = calculateCanonicalRentDue(
+    row,
+    payments,
+    new Date(2026, 7, 4, 12)
+  )
+
+  assert.strictEqual(result.status, 'paid')
+  assert.strictEqual(result.dueAmount, 0)
+  assert.strictEqual(localDate(result.paidThroughDate), '2026-09-04')
+  assert.strictEqual(localDate(result.nextDueDate), '2026-10-04')
+  assert.strictEqual(
+    formatRentDueDetail(result, localDate),
+    'Next rent due: 2026-10-04'
+  )
 })
 
 test('rent payment method casing and missing payment_type do not exclude legitimate rent', () => {
