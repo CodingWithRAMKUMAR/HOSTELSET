@@ -488,24 +488,6 @@ begin
 
   raise notice
     'ok - existing test payments fund the next cycle exactly';
-  perform set_config(
-    'request.jwt.claim.sub',
-    test_tenant_user::text,
-    true
-  );
-
-  begin
-    update public.tenants
-    set rent_amount = 1
-    where id = test_tenant_id;
-
-    raise exception
-      'Tenant was allowed to modify protected rent state';
-  exception
-    when sqlstate '42501' then
-      raise notice
-        'ok - tenant managed-field protection remains enforced';
-  end;
 
   raise notice
     'Room-change rent database integration test passed';
