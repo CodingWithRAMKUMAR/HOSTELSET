@@ -1,10 +1,20 @@
 import crypto from 'crypto'
-import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
-import { allowPostOnly, enforceRateLimit, getClientIp, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
-import { logger } from '../../../lib/logger'
-
-const ALLOWED = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' }
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+import {
+  allowPostOnly,
+  enforceRateLimit,
+  getClientIp,
+  logger,
+  requireJson,
+  setPrivateApiResponse,
+  supabaseAdmin,
+} from '../../../platform/api/publicSecurity'
+import {
+  VISITOR_UUID_PATTERN,
+  buildVisitorUploadPath,
+  isVisitorUploadCategory,
+  isVisitorUploadSizeAllowed,
+  visitorUploadExtension,
+} from '../../../products/hostels/public/visitor'
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } }
 
@@ -21,10 +31,10 @@ async function processUploadRequest(req, res) {
   const ip = getClientIp(req)
   if (!await enforceRateLimit(req, res, { scope: 'visitor-upload-ip', identifier: ip, limit: 12, windowSeconds: 900 })) return
   const { propertyId, category, contentType, size } = req.body || {}
-  if (!UUID.test(String(propertyId || '')) || !['identity', 'photos', 'payments'].includes(category) || !ALLOWED[contentType]) {
+  if (!VISITOR_UUID_PATTERN.test(String(propertyId || '')) || !isVisitorUploadCategory(category) || !visitorUploadExtension(contentType)) {
     return res.status(400).json({ error: 'Invalid upload request' })
   }
-  if (!Number.isSafeInteger(Number(size)) || Number(size) < 1 || Number(size) > 5 * 1024 * 1024) {
+  if (!isVisitorUploadSizeAllowed(size)) {
     return res.status(400).json({ error: 'File must be under 5MB' })
   }
   if (category !== 'identity' && contentType === 'application/pdf') return res.status(400).json({ error: 'An image is required' })
@@ -39,7 +49,7 @@ async function processUploadRequest(req, res) {
   }
   if (!isVisible) return res.status(404).json({ error: 'This property is currently unavailable for applications.' })
 
-  const path = `${propertyId}/${category}/${crypto.randomUUID()}.${ALLOWED[contentType]}`
+  const path = buildVisitorUploadPath(propertyId, category, contentType, crypto.randomUUID())
   const { data, error } = await supabaseAdmin.storage.from('tenant-documents').createSignedUploadUrl(path)
   if (error) {
     const errorMessage = process.env.NODE_ENV === 'production'

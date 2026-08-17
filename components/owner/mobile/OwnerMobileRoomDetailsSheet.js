@@ -4,6 +4,10 @@ import { formatCurrency, formatDate, getSharingDetails } from '../../../lib/util
 import { useBodyScrollLock } from '../../../hooks/useBodyScrollLock'
 import DashboardIcon from '../../dashboard/DashboardIcon'
 import toast from 'react-hot-toast'
+import {
+  updateOwnerRoom,
+  validateOwnerRoomSettings,
+} from '../../../products/hostels/owner/rooms'
 
 export default function OwnerMobileRoomDetailsSheet({ room, tenants = [], onClose, onUpdated, onAddTenant }) {
   useBodyScrollLock(Boolean(room))
@@ -34,24 +38,11 @@ export default function OwnerMobileRoomDetailsSheet({ room, tenants = [], onClos
 
   const saveRoom = async () => {
     if (saving) return
-    const roomNumber = String(form.room_number || '').trim()
-    const monthlyRent = Number(form.monthly_rent)
-    const nextCapacity = Number(form.capacity)
-    if (!roomNumber) return toast.error('Room number is required')
-    if (!Number.isFinite(monthlyRent) || monthlyRent < 0) return toast.error('Monthly rent cannot be negative')
-    if (!Number.isInteger(nextCapacity) || nextCapacity <= 0) return toast.error('Capacity must be a positive whole number')
-    if (nextCapacity < occupied) return toast.error('Capacity cannot be lower than current occupants')
+    const validation = validateOwnerRoomSettings(form, occupied)
+    if (!validation.valid) return toast.error(validation.message)
     setSaving(true)
     try {
-      const { data, error } = await supabase.rpc('update_owner_room', {
-        p_room_id: room.id,
-        p_room_number: roomNumber,
-        p_monthly_rent: monthlyRent,
-        p_capacity: nextCapacity,
-        p_sharing_type: form.sharing_type,
-        p_room_audience: form.room_audience,
-      })
-      if (error) throw error
+      const data = await updateOwnerRoom(supabase, room, form, occupied)
       await onUpdated?.(data)
       setEditing(false)
       toast.success('Room updated')

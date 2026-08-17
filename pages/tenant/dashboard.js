@@ -19,8 +19,14 @@ import { useRoomChange } from '../../hooks/useRoomChange'
 // ------------------------------------------------
 
 import { calculateRentDueStatus, formatCurrency, formatDate, formatRentDueDetail, formatRentDueLabel, getSharingDetails, isPendingRentPayment } from '../../lib/utils'
-import { normalizeBloodGroup } from '../../lib/bloodGroups'
-import { uploadProfilePhotoWithSignedUrl, validateProfilePhotoFile } from '../../lib/profilePhotos'
+import {
+  tenantProfileFormFromTenant,
+  tenantProfileStatePatch,
+  updateTenantProfile,
+  uploadTenantProfilePhoto,
+  validateTenantProfileForm,
+  validateTenantProfilePhotoFile,
+} from '../../products/hostels/tenant/profile'
 
 // Content Components (static)
 import OverviewSection from '../../components/tenant/OverviewSection'
@@ -254,7 +260,7 @@ function TenantDashboardContent() {
   // ----- Profile -----
   const openProfile = () => {
     if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview)
-    setProfileForm({ name: tenant?.name || '', phone: tenant?.phone || '', email: tenant?.email || '', blood_group: tenant?.blood_group || '' })
+    setProfileForm(tenantProfileFormFromTenant(tenant))
     setProfilePhotoPreview('')
     setEditProfile(false)
     setShowProfileModal(true)
@@ -263,36 +269,22 @@ function TenantDashboardContent() {
   const handleProfilePhotoChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
-    const validationError = validateProfilePhotoFile(file)
+    const validationError = validateTenantProfilePhotoFile(file)
     if (validationError) { toast.error(validationError); return }
     if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview)
     setProfilePhotoPreview(URL.createObjectURL(file))
     setProfileForm(current => ({ ...current, profilePhotoFile: file }))
   }
 
-  const uploadTenantProfilePhoto = async (file) => {
-    const { data: { session } } = await supabase.auth.getSession()
-    const uploadedPath = await uploadProfilePhotoWithSignedUrl('/api/tenant/profile-photo', file)
-    const updateResponse = await fetch('/api/tenant/profile-photo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-      body: JSON.stringify({ action: 'update', path: uploadedPath }),
-    })
-    const updated = await updateResponse.json().catch(() => ({}))
-    if (!updateResponse.ok) throw new Error(updated.error || 'Could not update profile photo')
-    return { uploadedPath, signedUrl: updated.signedUrl || null }
-  }
-
   const updateProfile = async () => {
     if (isSubmitting) return
-    if (!profileForm.name) { toast.error('Name is required'); return }
-    if (!normalizeBloodGroup(profileForm.blood_group)) { toast.error('Blood group is required'); return }
+    const validation = validateTenantProfileForm(profileForm)
+    if (!validation.valid) { toast.error(validation.message); return }
     setIsSubmitting(true)
     try {
-      const { error } = await supabase.rpc('update_tenant_profile', { p_name:profileForm.name, p_phone:profileForm.phone, p_blood_group:normalizeBloodGroup(profileForm.blood_group) })
-      if (error) throw error
-      const photo = profileForm.profilePhotoFile ? await uploadTenantProfilePhoto(profileForm.profilePhotoFile) : null
-      setTenant(current => current ? { ...current, name: profileForm.name, phone: profileForm.phone, blood_group: normalizeBloodGroup(profileForm.blood_group), ...(photo?.uploadedPath ? { profile_photo_path: photo.uploadedPath } : {}) } : current)
+      const updatedProfile = await updateTenantProfile(supabase, profileForm)
+      const photo = profileForm.profilePhotoFile ? await uploadTenantProfilePhoto(supabase, fetch, profileForm.profilePhotoFile) : null
+      setTenant(current => current ? { ...current, ...tenantProfileStatePatch(profileForm, updatedProfile, photo) } : current)
       toast.success('Profile updated successfully!')
       setEditProfile(false)
       setProfilePhotoPreview('')

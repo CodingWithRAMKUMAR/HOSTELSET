@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
 import { logger } from '../../../lib/logger'
 import { getLoginUrl, getResetPasswordUrl } from '../../../lib/server/appUrl'
+import { setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
 
 async function sendApprovalNotification({ email, name }) {
   const apiKey = process.env.BREVO_API_KEY
@@ -119,7 +120,11 @@ async function assertCanApproveProperty(actor, propertyId) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  setPrivateApiResponse(res)
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST')
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
   if (!supabaseAdmin) return res.status(503).json({ error: 'Approval service is unavailable' })
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
   if (!token) return res.status(401).json({ error: 'Authentication required' })

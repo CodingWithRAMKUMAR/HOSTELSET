@@ -462,7 +462,7 @@ test.describe('Production visitor application flow', () => {
       )
 
       await phone.pressSequentially(
-        '9876504321',
+        '9876504322',
         { delay: 70 }
       )
 
@@ -740,7 +740,7 @@ test.describe('Production visitor application flow', () => {
       )
 
       await phone.pressSequentially(
-        '9876504321',
+        '9876504323',
         { delay: 65 }
       )
 

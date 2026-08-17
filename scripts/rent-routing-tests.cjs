@@ -1476,8 +1476,9 @@ test('scoped realtime channels and diagnostics are used for core dashboards', ()
 
 test('browse hostels uses SWR cache, public-safe realtime, and compact dark cards', () => {
   const browseSource = source('pages/properties.js')
-  assert.match(browseSource, /hostelsetBrowseProperties:v2/)
-  assert.match(browseSource, /sessionStorage\.setItem\(BROWSE_CACHE_KEY/)
+  const listingSource = source('products/hostels/public/listing.js')
+  assert.match(listingSource, /hostelsetBrowseProperties:v2/)
+  assert.match(listingSource, /sessionStorage\.setItem\(BROWSE_CACHE_KEY/)
   assert.match(browseSource, /setRefreshing\(true\)/)
   assert.match(browseSource, /useRealtimeRefresh\('public:properties:availability', \['properties', 'rooms'\]/)
   assert.doesNotMatch(browseSource, /\['properties', 'rooms', 'tenants'\]/)
@@ -1485,7 +1486,7 @@ test('browse hostels uses SWR cache, public-safe realtime, and compact dark card
   assert.match(browseSource, /xl:grid-cols-4/)
   assert.match(browseSource, /aspect-\[16\/9\]/)
   assert.match(browseSource, /loading=\{index < 2 \? 'eager' : 'lazy'\}/)
-  assert.match(browseSource, /hostelsetBrowsePerf/)
+  assert.match(listingSource, /hostelsetBrowsePerf/)
 })
 
 test('owner core reads independent data concurrently', () => {
@@ -1600,13 +1601,15 @@ test('rent reminder template names match database and Brevo mapping', () => {
 
 test('prebooking fee displayed publicly cannot be inserted as zero by the visitor API', () => {
   const propertySource = source('pages/property/[id].js')
+  const publicDetailSource = source('products/hostels/public/detail.js')
+  const visitorSource = source('products/hostels/public/visitor.js')
   const visitorSubmitSource = source('pages/api/visitor/submit.js')
   const ownerContextSource = source('context/OwnerContext.js')
   const settingsModalSource = source('components/owner/modals/SettingsModal.js')
-  assert.match(propertySource, /const DEFAULT_PREBOOKING_FEE = 3000/)
-  assert.match(propertySource, /pre_booking_fee: Number\(settings\?\.pre_booking_fee\) > 0 \? Number\(settings\.pre_booking_fee\) : DEFAULT_PREBOOKING_FEE/)
-  assert.match(visitorSubmitSource, /const DEFAULT_PREBOOKING_FEE = 3000/)
-  assert.match(visitorSubmitSource, /const preBookingFee = Number\.isFinite\(configuredFee\) && configuredFee > 0[\s\S]*Number\(room\.deposit_amount \|\| DEFAULT_PREBOOKING_FEE\)/)
+  assert.match(publicDetailSource, /const DEFAULT_PREBOOKING_FEE = 3000/)
+  assert.match(publicDetailSource, /pre_booking_fee: Number\(settings\?\.pre_booking_fee\) > 0 \? Number\(settings\.pre_booking_fee\) : DEFAULT_PREBOOKING_FEE/)
+  assert.match(visitorSource, /DEFAULT_PREBOOKING_FEE/)
+  assert.match(visitorSource, /const preBookingFee = Number\.isFinite\(configuredFee\) && configuredFee > 0[\s\S]*Number\(room\?\.deposit_amount \|\| DEFAULT_PREBOOKING_FEE\)/)
   assert.match(visitorSubmitSource, /pre_booking_fee_amount: preBookingFee/)
   assert.doesNotMatch(visitorSubmitSource, /pre_booking_fee_amount:\s*Number\(settings\.pre_booking_fee \|\| 0\)/)
   assert.match(ownerContextSource, /pre_booking_fee:3000/)
@@ -1615,9 +1618,10 @@ test('prebooking fee displayed publicly cannot be inserted as zero by the visito
 
 test('public prebooking UI is reservation-capacity aware', () => {
   const propertySource = source('pages/property/[id].js')
-  assert.match(propertySource, /buildReservationCounts/)
-  assert.match(propertySource, /get_public_property_rooms/)
-  assert.match(propertySource, /reserved_prebooking_count/)
+  const publicDetailSource = source('products/hostels/public/detail.js')
+  assert.match(publicDetailSource, /buildReservationCounts/)
+  assert.match(publicDetailSource, /get_public_property_rooms/)
+  assert.match(publicDetailSource, /reserved_prebooking_count/)
   assert.match(propertySource, /unreserved bed/)
   assert.match(propertySource, /Next vacancy already booked/)
   assert.match(

@@ -18,7 +18,10 @@ export default async function handler(req, res) {
     requestId,
     reportServerErrors: false,
   });
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
   if (!supabaseAdmin) return res.status(500).json({ error: 'Server is not configured' });
 
   const { ownerId } = req.body;

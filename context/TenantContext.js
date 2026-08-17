@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { clearHostelSetSessionCache, getRestoredSession, supabase, syncServerSession } from '../lib/supabase';
 import { cleanupRealtimeChannel, createRealtimeChannel, logRealtimeEvent, subscribeRealtimeChannel } from '../lib/realtime';
 import toast from 'react-hot-toast';
+import { loadTenantProfilePhotoUrl } from '../products/hostels/tenant/profile';
 
 const TenantContext = createContext();
 
@@ -75,33 +76,8 @@ export function TenantProvider({ children }) {
       return null;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const userScope = session?.user?.id || 'anonymous';
-    const cacheKey = `${userScope}:${tenantData.id}:${tenantData.property_id}:${tenantData.profile_photo_path || ''}:${tenantData.updated_at || tenantData.move_in_date || ''}`;
-    if (profilePhotoCacheRef.current.has(cacheKey)) {
-      const cachedUrl = profilePhotoCacheRef.current.get(cacheKey);
-      setProfilePhotoUrl(cachedUrl);
-      return cachedUrl;
-    }
-
     try {
-      const response = await fetch('/api/tenant/profile-photo-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({}),
-      });
-      if (response.status === 404) {
-        profilePhotoCacheRef.current.set(cacheKey, null);
-        setProfilePhotoUrl(null);
-        return null;
-      }
-      if (!response.ok) throw new Error('Profile photo unavailable');
-      const data = await response.json();
-      const url = data?.signedUrl || null;
-      profilePhotoCacheRef.current.set(cacheKey, url);
+      const url = await loadTenantProfilePhotoUrl(supabase, fetch, tenantData, profilePhotoCacheRef.current);
       setProfilePhotoUrl(url);
       return url;
     } catch (photoError) {

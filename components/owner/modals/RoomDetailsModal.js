@@ -5,6 +5,10 @@ import { supabase, signPrivateDocumentFields, findTenantDocumentRecord } from '.
 import { formatCurrency, formatDate, formatRentDueDetail } from '../../../lib/utils';
 import toast from 'react-hot-toast';
 import { useBodyScrollLock } from '../../../hooks/useBodyScrollLock';
+import {
+  updateOwnerRoom,
+  validateOwnerRoomSettings,
+} from '../../../products/hostels/owner/rooms';
 
 function rentBadgeClass(rentSummary = {}) {
   if (rentSummary.status === 'paid') return 'bg-green-100 text-green-700'
@@ -106,24 +110,11 @@ export default function RoomDetailsModal({
 
   const saveRoomSettings = async () => {
     if (savingRoom) return;
-    const roomNumber = roomSettings.room_number.trim();
-    const monthlyRent = Number(roomSettings.monthly_rent);
-    const capacity = Number(roomSettings.capacity);
-    if (!roomNumber) { toast.error('Room number is required'); return; }
-    if (!Number.isFinite(monthlyRent) || monthlyRent < 0) { toast.error('Monthly rent cannot be negative'); return; }
-    if (!Number.isInteger(capacity) || capacity <= 0) { toast.error('Capacity must be a positive whole number'); return; }
-    if (capacity < room.current_occupants) { toast.error('Capacity cannot be lower than current occupants'); return; }
+    const validation = validateOwnerRoomSettings(roomSettings, room.current_occupants);
+    if (!validation.valid) { toast.error(validation.message); return; }
     setSavingRoom(true);
     try {
-      const { data, error } = await supabase.rpc('update_owner_room', {
-        p_room_id: room.id,
-        p_room_number: roomNumber,
-        p_monthly_rent: monthlyRent,
-        p_capacity: capacity,
-        p_sharing_type: roomSettings.sharing_type,
-        p_room_audience: roomSettings.room_audience,
-      });
-      if (error) throw error;
+      const data = await updateOwnerRoom(supabase, room, roomSettings, room.current_occupants);
       await onUpdated?.(data);
       toast.success('Room updated');
     } catch (error) { toast.error('Failed to update room: ' + error.message); }

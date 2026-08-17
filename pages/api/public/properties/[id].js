@@ -2,6 +2,10 @@ import { createClient } from '@supabase/supabase-js'
 import { logger } from '../../../../lib/logger'
 import { attachRequestContext } from '../../../../lib/server/requestContext'
 import { attachRequestTelemetry } from '../../../../lib/server/requestTelemetry'
+import {
+  PUBLIC_ROOM_DETAIL_API_FALLBACK_SELECT,
+  fetchPublicPropertyRooms,
+} from '../../../../products/hostels/public/detail'
 
 const CACHE_TTL_MS = 15 * 1000
 const STALE_MAX_AGE_MS = 5 * 60 * 1000
@@ -52,59 +56,21 @@ function pruneCache() {
   }
 }
 
-function isMissingPublicRoomsRpc(error) {
-  return (
-    error?.code === 'PGRST202' ||
-    /get_public_property_rooms/i.test(String(error?.message || ''))
-  )
-}
-
 async function fetchPublicRooms(supabase, propertyId) {
-  const rpcResult = await supabase.rpc('get_public_property_rooms', {
-    p_property_id: propertyId,
+  const result = await fetchPublicPropertyRooms(supabase, propertyId, {
+    fallbackSelect: PUBLIC_ROOM_DETAIL_API_FALLBACK_SELECT,
+    mapFallbackRoom: room => ({
+      ...room,
+      has_approved_prebooking: false,
+      reserved_prebooking_count: 0,
+    }),
   })
 
-  if (!rpcResult.error) {
-    return Array.isArray(rpcResult.data) ? rpcResult.data : []
+  if (result.error) {
+    throw result.error
   }
 
-  if (!isMissingPublicRoomsRpc(rpcResult.error)) {
-    throw rpcResult.error
-  }
-
-  const fallbackResult = await supabase
-    .from('rooms')
-    .select(
-      [
-        'id',
-        'property_id',
-        'room_number',
-        'sharing_type',
-        'monthly_rent',
-        'capacity',
-        'current_occupants',
-        'status',
-        'created_at',
-        'updated_at',
-        'room_audience',
-        'deposit_amount',
-        'next_vacate_date',
-      ].join(',')
-    )
-    .eq('property_id', propertyId)
-    .in('status', ['vacant', 'occupied'])
-    .gt('capacity', 0)
-    .order('room_number')
-
-  if (fallbackResult.error) {
-    throw fallbackResult.error
-  }
-
-  return (fallbackResult.data || []).map(room => ({
-    ...room,
-    has_approved_prebooking: false,
-    reserved_prebooking_count: 0,
-  }))
+  return Array.isArray(result.data) ? result.data : []
 }
 
 async function fetchSimilarProperties(supabase, property, requestId) {

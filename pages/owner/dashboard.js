@@ -12,6 +12,10 @@ import ThemeToggle from '../../components/common/ThemeToggle';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { buildDashboardHref, isCanonicalDashboardQuery, pushDashboardHistory, replaceDashboardHistory, resolveOwnerDashboardQuery } from '../../lib/dashboardRouting';
 import { filterTenantsByRentStatus, summarizeTenantRentStatuses } from '../../lib/tenantRentStatus';
+import {
+  archiveOwnerTenant,
+  convertReservedPrebookingForReleasedRoom,
+} from '../../products/hostels/owner/tenants';
 
 // Modular Imports
 import { useOwner, OwnerProvider } from '../../context/OwnerContext';
@@ -645,18 +649,12 @@ function OwnerDashboardContent() {
     }
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('archive_tenant', { p_tenant_id: tenantToDelete.id, p_reason: String(reason).trim() });
-      if (error) throw error;
+      const data = await archiveOwnerTenant(supabase, tenantToDelete.id, reason);
       if (data?.occupancy_released && data?.room_id) {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const response = await fetch('/api/requests/convert-reserved-prebooking', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-              body: JSON.stringify({ roomId: data.room_id }),
-            });
-            const conversion = await response.json().catch(() => ({}));
+          const convertedReservation = await convertReservedPrebookingForReleasedRoom(supabase, fetch, data.room_id);
+          if (convertedReservation) {
+            const { response, conversion } = convertedReservation;
             if (response.ok && conversion.converted && conversion.setupEmailSent) toast.success('Reserved pre-booking converted and setup email sent.');
             else if (!response.ok) toast.error(conversion.error || 'Reserved pre-booking conversion failed. You can retry from pre-bookings.');
           }
