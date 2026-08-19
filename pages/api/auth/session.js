@@ -1,4 +1,9 @@
 import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
+import {
+  ROLE_CACHE_COOKIE_NAME,
+  ROLE_CACHE_MAX_AGE_SECONDS,
+  createRoleCacheValue,
+} from '../../../lib/server/roleCacheCookie'
 
 const COOKIE_NAME = 'hostelset_access_token'
 const REFRESH_COOKIE_NAME = 'hostelset_refresh_token'
@@ -23,7 +28,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0')
 
   if (req.method === 'DELETE') {
-    res.setHeader('Set-Cookie', [cookie(COOKIE_NAME, '', 0), cookie(REFRESH_COOKIE_NAME, '', 0)])
+    res.setHeader('Set-Cookie', [cookie(COOKIE_NAME, '', 0), cookie(REFRESH_COOKIE_NAME, '', 0), cookie(ROLE_CACHE_COOKIE_NAME, '', 0)])
     res.status(204).end()
     return
   }
@@ -50,7 +55,7 @@ export default async function handler(req, res) {
 
   const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token)
   if (authError || !auth?.user) {
-    res.setHeader('Set-Cookie', [cookie(COOKIE_NAME, '', 0), cookie(REFRESH_COOKIE_NAME, '', 0)])
+    res.setHeader('Set-Cookie', [cookie(COOKIE_NAME, '', 0), cookie(REFRESH_COOKIE_NAME, '', 0), cookie(ROLE_CACHE_COOKIE_NAME, '', 0)])
     res.status(401).json({ error: 'Session expired' })
     return
   }
@@ -61,7 +66,7 @@ export default async function handler(req, res) {
     .eq('id', auth.user.id)
     .single()
   if (profileError || !profile || !profile.is_active || !['admin', 'owner', 'tenant'].includes(profile.role)) {
-    res.setHeader('Set-Cookie', [cookie(COOKIE_NAME, '', 0), cookie(REFRESH_COOKIE_NAME, '', 0)])
+    res.setHeader('Set-Cookie', [cookie(COOKIE_NAME, '', 0), cookie(REFRESH_COOKIE_NAME, '', 0), cookie(ROLE_CACHE_COOKIE_NAME, '', 0)])
     res.status(403).json({ error: 'Account is not authorized' })
     return
   }
@@ -73,10 +78,20 @@ export default async function handler(req, res) {
     return
   }
 
-  res.setHeader('Set-Cookie', [
+  const roleCache = await createRoleCacheValue({
+    userId: auth.user.id,
+    role: profile.role,
+    isActive: profile.is_active,
+    accessToken: token,
+  })
+  const cookies = [
     cookie(COOKIE_NAME, encodeURIComponent(token), maxAge),
     cookie(REFRESH_COOKIE_NAME, encodeURIComponent(refreshToken), 60 * 60 * 24 * 30),
-  ])
+  ]
+  if (roleCache) cookies.push(cookie(ROLE_CACHE_COOKIE_NAME, roleCache, ROLE_CACHE_MAX_AGE_SECONDS))
+  else cookies.push(cookie(ROLE_CACHE_COOKIE_NAME, '', 0))
+
+  res.setHeader('Set-Cookie', cookies)
   res.status(204).end()
   return
 }

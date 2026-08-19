@@ -36,8 +36,6 @@ const NearbyHostelMap = dynamic(
   }
 )
 
-const propertyImageLoader = ({ src }) => src
-
 export default function PropertyDetail({ initialProperty = null, initialRooms = [], initialSettings = null, similarProperties = [] }) {
   const router = useRouter()
   const { id } = router.query
@@ -926,7 +924,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
           <div className="relative bg-slate-100">
             {property.photos && property.photos.length > 0 ? (
               <>
-                <div className="relative h-[260px] w-full sm:h-[400px] md:h-[500px]"><Image loader={propertyImageLoader} unoptimized src={property.photos[currentImageIndex]} alt={imageAlt} fill priority sizes="(max-width: 768px) 100vw, 1152px" className="object-cover" /></div>
+                <div className="relative h-[260px] w-full sm:h-[400px] md:h-[500px]"><Image src={property.photos[currentImageIndex]} alt={imageAlt} fill priority sizes="(max-width: 768px) 100vw, 1152px" className="object-cover" /></div>
                 {property.photos.length > 1 && (
                   <>
                     <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-md transition backdrop-blur-sm">←</button>
@@ -947,7 +945,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
             <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
               {property.photos.map((photo, i) => (
                 <button key={i} onClick={() => setCurrentImageIndex(i)} className={`w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border-2 transition ${i === currentImageIndex ? 'border-slate-800' : 'border-transparent opacity-70 hover:opacity-100'}`}>
-                  <Image loader={propertyImageLoader} unoptimized src={photo} alt={`${imageAlt} - photo ${i + 1}`} width={80} height={80} loading="lazy" className="h-full w-full object-cover" />
+                  <Image src={photo} alt={`${imageAlt} - photo ${i + 1}`} width={80} height={80} loading="lazy" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
