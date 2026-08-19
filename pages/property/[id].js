@@ -14,68 +14,15 @@ import PublicFooter from '../../components/PublicFooter'
 import { fetchWithTimeout } from '../../lib/fetchWithTimeout'
 import { propertyPublicPath, UUID_PATTERN } from '../../lib/propertySlug'
 import { BLOOD_GROUPS } from '../../lib/bloodGroups'
-
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.hostelset.com').replace(/\/$/, '')
-const DEFAULT_APPLICATION_DEPOSIT = 3000
-const DEFAULT_PREBOOKING_FEE = 3000
-
-const normalizeProperty = property => property ? {
-  ...property,
-  latitude: property.latitude != null ? Number(property.latitude) : null,
-  longitude: property.longitude != null ? Number(property.longitude) : null,
-} : null
-
-const settingsFor = (property, settings) => ({
-  upi_id: settings?.upi_id || property?.owner_upi_id || '',
-  upi_phone: settings?.upi_phone || '',
-  advance_months: settings?.advance_months || 1,
-  joining_fee: settings?.joining_fee || 0,
-  pre_booking_fee: Number(settings?.pre_booking_fee) > 0 ? Number(settings.pre_booking_fee) : DEFAULT_PREBOOKING_FEE,
-  application_deposit: Number(settings?.application_deposit) > 0
-    ? Number(settings.application_deposit)
-    : DEFAULT_APPLICATION_DEPOSIT,
-})
-
-const buildVacateInfo = roomRows => {
-  const info = {}
-  const today = new Date()
-  roomRows.forEach(room => {
-    if (!room.next_vacate_date) return
-    const vacateDate = new Date(`${room.next_vacate_date}T23:59:59`)
-    if (Number.isNaN(vacateDate.getTime())) return
-    info[room.id] = {
-      daysLeft: Math.ceil((vacateDate - today) / (1000 * 60 * 60 * 24)),
-      vacateDate: room.next_vacate_date,
-    }
-  })
-  return info
-}
-
-const buildReservationCounts = roomRows => Object.fromEntries(
-  roomRows.map(room => [room.id, Number(room.reserved_prebooking_count || 0)]),
-)
-
-const isMissingPublicRoomsRpc = error => error?.code === 'PGRST202'
-  || /get_public_property_rooms/i.test(String(error?.message || ''))
-
-const fetchPublicRooms = async propertyId => {
-  const rpcResult = await supabase.rpc('get_public_property_rooms', { p_property_id: propertyId })
-  if (!rpcResult.error) return rpcResult
-  if (!isMissingPublicRoomsRpc(rpcResult.error)) return rpcResult
-
-  const fallback = await supabase
-    .from('rooms')
-    .select('*')
-    .eq('property_id', propertyId)
-    .in('status', ['vacant', 'occupied'])
-    .gt('capacity', 0)
-    .order('room_number')
-  if (fallback.error) return fallback
-  return {
-    data: (fallback.data || []).map(room => ({ ...room, reserved_prebooking_count: 0 })),
-    error: null,
-  }
-}
+import {
+  DEFAULT_APPLICATION_DEPOSIT,
+  SITE_URL,
+  buildReservationCounts,
+  buildVacateInfo,
+  fetchPublicPropertyRooms,
+  normalizeProperty,
+  settingsFor,
+} from '../../products/hostels/public/detail'
 
 const NearbyHostelMap = dynamic(
   () => import('../../components/maps/NearbyHostelMap'),
@@ -88,8 +35,6 @@ const NearbyHostelMap = dynamic(
     ),
   }
 )
-
-const propertyImageLoader = ({ src }) => src
 
 export default function PropertyDetail({ initialProperty = null, initialRooms = [], initialSettings = null, similarProperties = [] }) {
   const router = useRouter()
@@ -979,7 +924,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
           <div className="relative bg-slate-100">
             {property.photos && property.photos.length > 0 ? (
               <>
-                <div className="relative h-[260px] w-full sm:h-[400px] md:h-[500px]"><Image loader={propertyImageLoader} unoptimized src={property.photos[currentImageIndex]} alt={imageAlt} fill priority sizes="(max-width: 768px) 100vw, 1152px" className="object-cover" /></div>
+                <div className="relative h-[260px] w-full sm:h-[400px] md:h-[500px]"><Image src={property.photos[currentImageIndex]} alt={imageAlt} fill priority sizes="(max-width: 768px) 100vw, 1152px" className="object-cover" /></div>
                 {property.photos.length > 1 && (
                   <>
                     <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-md transition backdrop-blur-sm">←</button>
@@ -1000,7 +945,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
             <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
               {property.photos.map((photo, i) => (
                 <button key={i} onClick={() => setCurrentImageIndex(i)} className={`w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border-2 transition ${i === currentImageIndex ? 'border-slate-800' : 'border-transparent opacity-70 hover:opacity-100'}`}>
-                  <Image loader={propertyImageLoader} unoptimized src={photo} alt={`${imageAlt} - photo ${i + 1}`} width={80} height={80} loading="lazy" className="h-full w-full object-cover" />
+                  <Image src={photo} alt={`${imageAlt} - photo ${i + 1}`} width={80} height={80} loading="lazy" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
@@ -1562,7 +1507,7 @@ export async function getStaticProps({ params }) {
   }
 
   const [resolvedRoomsResult, resolvedSettingsResult] = await Promise.all([
-    fetchPublicRooms(propertyResult.data.id),
+    fetchPublicPropertyRooms(supabase, propertyResult.data.id),
       supabase.from('owner_settings').select('upi_id, upi_phone, advance_months, joining_fee, pre_booking_fee, application_deposit').eq('property_id', propertyResult.data.id).maybeSingle(),
   ])
 

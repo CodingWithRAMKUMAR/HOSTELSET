@@ -1,37 +1,43 @@
 import crypto from 'crypto'
-import { supabaseAdmin } from '../../../lib/server/supabaseAdmin'
-import { cleanPhoneNumber } from '../../../lib/utils'
-import { allowPostOnly, enforceRateLimit, getClientIp, requireJson, setPrivateApiResponse } from '../../../lib/server/publicApiSecurity'
-import { logger } from '../../../lib/logger'
-import { normalizeBloodGroup } from '../../../lib/bloodGroups'
+import {
+  allowPostOnly,
+  enforceRateLimit,
+  getClientIp,
+  logger,
+  requireJson,
+  setPrivateApiResponse,
+  supabaseAdmin,
+} from '../../../platform/api/publicSecurity'
+import {
+  VISITOR_MAX_FILE_SIZE,
+  hasValidVisitorSubmissionShape,
+  isVisitorUploadTypeAllowed,
+  normalizeVisitorPrivatePath,
+  normalizeVisitorSubmissionBody,
+  resolveVisitorApplicationDeposit,
+  resolveVisitorPreBookingFee,
+  visitorActiveStatusesForKind,
+  visitorTableForKind,
+  visitorUploadExtension,
+} from '../../../products/hostels/public/visitor'
 
 export const config = { api: { bodyParser: { sizeLimit: '1mb' } } }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024
-const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const DEFAULT_APPLICATION_DEPOSIT = 3000
-const DEFAULT_PREBOOKING_FEE = 3000
-
 function decodeFile(file, label, imageOnly = false) {
   if (!file?.data || !file?.type) throw new Error(`${label} is required`)
-  if (!ALLOWED.has(file.type) || (imageOnly && file.type === 'application/pdf')) {
+  if (!isVisitorUploadTypeAllowed(file.type, { imageOnly })) {
     throw new Error(`${label} has an unsupported file type`)
   }
   const match = file.data.match(/^data:([^;]+);base64,(.+)$/)
   if (!match || match[1] !== file.type) throw new Error(`${label} is invalid`)
   const buffer = Buffer.from(match[2], 'base64')
-  if (!buffer.length || buffer.length > MAX_FILE_SIZE) throw new Error(`${label} must be under 5MB`)
+  if (!buffer.length || buffer.length > VISITOR_MAX_FILE_SIZE) throw new Error(`${label} must be under 5MB`)
   return buffer
-}
-
-function extension(type) {
-  return ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' })[type]
 }
 
 async function uploadPrivate(file, folder, label, imageOnly = false) {
   const buffer = decodeFile(file, label, imageOnly)
-  const path = `${folder}/${crypto.randomUUID()}.${extension(file.type)}`
+  const path = `${folder}/${crypto.randomUUID()}.${visitorUploadExtension(file.type)}`
   const { error } = await supabaseAdmin.storage.from('tenant-documents').upload(path, buffer, {
     contentType: file.type,
     cacheControl: '3600',
@@ -45,12 +51,6 @@ async function removeFiles(paths) {
   if (paths.length) await supabaseAdmin.storage.from('tenant-documents').remove(paths)
 }
 
-function privatePath(path, propertyId, category, label) {
-  const value = String(path || '')
-  if (!value.startsWith(`${propertyId}/${category}/`) || value.includes('..')) throw new Error(`${label} upload is invalid`)
-  return value
-}
-
 async function verifyPrivateObject(path, label, imageOnly = false) {
   const slash = path.lastIndexOf('/')
   const folder = path.slice(0, slash)
@@ -58,7 +58,7 @@ async function verifyPrivateObject(path, label, imageOnly = false) {
   const { data, error } = await supabaseAdmin.storage.from('tenant-documents').list(folder, { search: name, limit: 2 })
   const object = data?.find(item => item.name === name)
   const mime = object?.metadata?.mimetype || object?.metadata?.contentType
-  if (error || !object || !ALLOWED.has(mime) || (imageOnly && mime === 'application/pdf') || Number(object.metadata?.size || 0) < 1 || Number(object.metadata?.size || 0) > MAX_FILE_SIZE) {
+  if (error || !object || !isVisitorUploadTypeAllowed(mime, { imageOnly }) || Number(object.metadata?.size || 0) < 1 || Number(object.metadata?.size || 0) > VISITOR_MAX_FILE_SIZE) {
     throw new Error(`${label} upload was not completed`)
   }
 }
@@ -72,14 +72,21 @@ async function processVisitorSubmission(req, res) {
 
   const uploaded = []
   try {
-    const { kind = 'application', propertyId, roomId, form, files, transactionId, expectedMoveIn } = req.body || {}
-    const name = String(form?.name || '').trim().slice(0, 120)
-    const email = String(form?.email || '').trim().toLowerCase().slice(0, 254)
-    const phone = cleanPhoneNumber(form?.phone)
-    const message = String(form?.message || '').trim().slice(0, 2000) || null
-    const bloodGroup = normalizeBloodGroup(form?.bloodGroup)
-    const normalizedTransactionId = String(transactionId || '').trim()
-    if (!['application', 'prebooking'].includes(kind) || !UUID.test(String(propertyId || '')) || !UUID.test(String(roomId || '')) || !name || !/^\S+@\S+\.\S+$/.test(email) || !/^\d{10}$/.test(phone) || !normalizedTransactionId || !files || typeof files !== 'object') {
+    const submission = normalizeVisitorSubmissionBody(req.body || {})
+    const {
+      kind,
+      propertyId,
+      roomId,
+      files,
+      expectedMoveIn,
+      name,
+      email,
+      phone,
+      message,
+      bloodGroup,
+      storedTransactionId,
+    } = submission
+    if (!hasValidVisitorSubmissionShape(submission)) {
       return res.status(400).json({ error: 'Please provide valid application details, including a UPI transaction reference.' })
     }
     if (kind === 'application' && !bloodGroup) return res.status(400).json({ error: 'Please select a valid blood group.' })
@@ -107,8 +114,8 @@ async function processVisitorSubmission(req, res) {
       if (Number(activeReservationCount || 0) >= Number(room.capacity || 0)) return res.status(409).json({ error: 'This room has no remaining reservation capacity.' })
     }
 
-    const table = kind === 'prebooking' ? 'pre_bookings' : 'applications'
-    const activeStatuses = kind === 'prebooking' ? ['pending', 'reserved', 'approved'] : ['pending', 'approved']
+    const table = visitorTableForKind(kind)
+    const activeStatuses = visitorActiveStatusesForKind(kind)
     const [{ data: duplicatePhone }, { data: duplicateEmail }] = await Promise.all([
       supabaseAdmin.from(table).select('id').eq('property_id', propertyId).eq('phone', phone).in('status', activeStatuses).is('deleted_at', null).limit(1),
       supabaseAdmin.from(table).select('id').eq('property_id', propertyId).eq('email', email).in('status', activeStatuses).is('deleted_at', null).limit(1),
@@ -145,11 +152,11 @@ async function processVisitorSubmission(req, res) {
       })
     }
 
-    const idPath = typeof files?.idProof === 'string' ? privatePath(files.idProof, propertyId, 'identity', 'ID proof') : await uploadPrivate(files?.idProof, `${propertyId}/identity`, 'ID proof')
+    const idPath = typeof files?.idProof === 'string' ? normalizeVisitorPrivatePath(files.idProof, propertyId, 'identity', 'ID proof') : await uploadPrivate(files?.idProof, `${propertyId}/identity`, 'ID proof')
     uploaded.push(idPath)
-    const photoPath = typeof files?.photo === 'string' ? privatePath(files.photo, propertyId, 'photos', 'Photo') : await uploadPrivate(files?.photo, `${propertyId}/photos`, 'Photo', true)
+    const photoPath = typeof files?.photo === 'string' ? normalizeVisitorPrivatePath(files.photo, propertyId, 'photos', 'Photo') : await uploadPrivate(files?.photo, `${propertyId}/photos`, 'Photo', true)
     uploaded.push(photoPath)
-    const paymentPath = typeof files?.payment === 'string' ? privatePath(files.payment, propertyId, 'payments', 'Payment screenshot') : await uploadPrivate(files?.payment, `${propertyId}/payments`, 'Payment screenshot', true)
+    const paymentPath = typeof files?.payment === 'string' ? normalizeVisitorPrivatePath(files.payment, propertyId, 'payments', 'Payment screenshot') : await uploadPrivate(files?.payment, `${propertyId}/payments`, 'Payment screenshot', true)
     uploaded.push(paymentPath)
     await Promise.all([
       verifyPrivateObject(idPath, 'ID proof'), verifyPrivateObject(photoPath, 'Photo', true), verifyPrivateObject(paymentPath, 'Payment screenshot', true),
@@ -159,16 +166,13 @@ async function processVisitorSubmission(req, res) {
       if (!expectedMoveIn || Number.isNaN(Date.parse(expectedMoveIn))) throw new Error('A valid move-in date is required')
       const { data: settings } = await supabaseAdmin.from('owner_settings').select('pre_booking_fee, upi_id').eq('property_id', propertyId).maybeSingle()
       if (!settings?.upi_id) throw new Error('Owner payment details are not configured')
-      const configuredFee = Number(settings.pre_booking_fee)
-      const preBookingFee = Number.isFinite(configuredFee) && configuredFee > 0
-        ? configuredFee
-        : Number(room.deposit_amount || DEFAULT_PREBOOKING_FEE)
+      const preBookingFee = resolveVisitorPreBookingFee(settings, room)
       if (!Number.isFinite(preBookingFee) || preBookingFee <= 0) throw new Error('Pre-booking fee is not configured')
       const { error } = await supabaseAdmin.from('pre_bookings').insert({
         property_id: propertyId, room_id: roomId, user_id: null, name, phone, email, message,
         expected_move_in_date: expectedMoveIn, id_proof: idPath, photo: photoPath,
         status: 'pending', payment_status: 'pending', pre_booking_fee_amount: preBookingFee,
-        payment_screenshot: paymentPath, payment_transaction_id: String(transactionId || '').trim().slice(0, 120) || null,
+        payment_screenshot: paymentPath, payment_transaction_id: storedTransactionId,
       })
       if (error) throw error
     } else {
@@ -185,14 +189,11 @@ async function processVisitorSubmission(req, res) {
       ])
       if (byPhone?.[0] && byEmail?.[0] && byPhone[0].id !== byEmail[0].id) throw new Error('The phone and email belong to different accounts')
       const userId = byPhone?.[0]?.id || byEmail?.[0]?.id || null
-      const configuredDeposit = Number(settings.application_deposit)
-      const deposit = Number.isFinite(configuredDeposit) && configuredDeposit > 0
-        ? configuredDeposit
-        : DEFAULT_APPLICATION_DEPOSIT
+      const deposit = resolveVisitorApplicationDeposit(settings)
       const { error } = await supabaseAdmin.from('applications').insert({
         user_id: userId, property_id: propertyId, room_id: roomId, name, phone, email, blood_group: bloodGroup, message,
         status: 'pending', id_proof: idPath, photo: photoPath, payment_screenshot: paymentPath,
-        payment_transaction_id: String(transactionId || '').trim().slice(0, 120) || null,
+        payment_transaction_id: storedTransactionId,
         payment_amount: deposit,
       })
       if (error) throw error

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { clearHostelSetSessionCache, getRestoredSession, supabase, syncServerSession } from '../lib/supabase';
 import { cleanupRealtimeChannel, createRealtimeChannel, logRealtimeEvent, subscribeRealtimeChannel } from '../lib/realtime';
 import toast from 'react-hot-toast';
+import { loadTenantProfilePhotoUrl } from '../products/hostels/tenant/profile';
 
 const TenantContext = createContext();
 
@@ -38,6 +39,45 @@ const normalizeRefreshArgs = (isBackgroundOrOptions = false, options = {}) => {
 };
 
 const tenantLoadKey = (userId, tenantId, propertyId) => `${userId || 'anonymous'}:${tenantId || 'auto'}:${propertyId || 'auto'}`;
+const TENANT_DASHBOARD_CACHE_PREFIX = 'hostelset_tenant_dashboard_snapshot_v1:';
+const SNAPSHOT_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const tenantDashboardCacheKey = userId => `${TENANT_DASHBOARD_CACHE_PREFIX}${userId}`;
+
+const readTenantDashboardCache = userId => {
+  if (typeof window === 'undefined' || !userId) return null;
+  try {
+    const cached = JSON.parse(window.sessionStorage.getItem(tenantDashboardCacheKey(userId)) || 'null');
+    if (!cached?.value || !Number.isFinite(Number(cached?.cachedAt))) return null;
+    if (Date.now() - Number(cached.cachedAt) > SNAPSHOT_CACHE_TTL_MS) return null;
+    return cached.value;
+  } catch {
+    return null;
+  }
+};
+
+const writeTenantDashboardCache = (userId, value) => {
+  if (typeof window === 'undefined' || !userId || !value?.tenant?.id) return;
+  try {
+    window.sessionStorage.setItem(tenantDashboardCacheKey(userId), JSON.stringify({
+      cachedAt: Date.now(),
+      value,
+    }));
+  } catch {}
+};
+
+const clearTenantDashboardCache = userId => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (userId) {
+      window.sessionStorage.removeItem(tenantDashboardCacheKey(userId));
+      return;
+    }
+    Object.keys(window.sessionStorage)
+      .filter(key => key.startsWith(TENANT_DASHBOARD_CACHE_PREFIX))
+      .forEach(key => window.sessionStorage.removeItem(key));
+  } catch {}
+};
 
 export function TenantProvider({ children }) {
   const router = useRouter();
@@ -75,33 +115,8 @@ export function TenantProvider({ children }) {
       return null;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const userScope = session?.user?.id || 'anonymous';
-    const cacheKey = `${userScope}:${tenantData.id}:${tenantData.property_id}:${tenantData.profile_photo_path || ''}:${tenantData.updated_at || tenantData.move_in_date || ''}`;
-    if (profilePhotoCacheRef.current.has(cacheKey)) {
-      const cachedUrl = profilePhotoCacheRef.current.get(cacheKey);
-      setProfilePhotoUrl(cachedUrl);
-      return cachedUrl;
-    }
-
     try {
-      const response = await fetch('/api/tenant/profile-photo-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({}),
-      });
-      if (response.status === 404) {
-        profilePhotoCacheRef.current.set(cacheKey, null);
-        setProfilePhotoUrl(null);
-        return null;
-      }
-      if (!response.ok) throw new Error('Profile photo unavailable');
-      const data = await response.json();
-      const url = data?.signedUrl || null;
-      profilePhotoCacheRef.current.set(cacheKey, url);
+      const url = await loadTenantProfilePhotoUrl(supabase, fetch, tenantData, profilePhotoCacheRef.current);
       setProfilePhotoUrl(url);
       return url;
     } catch (photoError) {
@@ -130,13 +145,43 @@ export function TenantProvider({ children }) {
     const requestKey = tenantLoadKey(userId, currentTenant?.id, currentProperty?.id);
     markTenantPerf('load-requested', `reason=${reason} key=${requestKey}${force ? ' force=true' : ''}`);
 
+    let restoredFromCache = false;
+    if (!isBackground && !force) {
+      const cachedState = readTenantDashboardCache(userId);
+      if (cachedState?.tenant?.id) {
+        setTenant(cachedState.tenant);
+        setRoom(cachedState.room || cachedState.tenant.rooms || null);
+        setProperty(cachedState.property || cachedState.tenant.property || null);
+        setOwner(cachedState.owner || null);
+        setRoommates(Array.isArray(cachedState.roommates) ? cachedState.roommates : []);
+        setRoommateVacateAlert(cachedState.roommateVacateAlert || null);
+        setDashboardSnapshot(cachedState.dashboardSnapshot || null);
+        setDashboardSnapshotLoaded(Boolean(cachedState.dashboardSnapshot));
+        setError(null);
+        setLoading(false);
+        loadTenantProfilePhoto(cachedState.tenant);
+        lastLoadedKeyRef.current = tenantLoadKey(
+          userId,
+          cachedState.tenant.id,
+          cachedState.tenant.property_id,
+        );
+        lastLoadedRequestKeyRef.current = requestKey;
+        lastLoadedResultRef.current = {
+          tenant: cachedState.tenant,
+          property: cachedState.property || cachedState.tenant.property || null,
+        };
+        restoredFromCache = true;
+        markTenantPerf('first-usable-data', `source=session-cache reason=${reason} key=${lastLoadedKeyRef.current}`);
+      }
+    }
+
     const inFlight = inFlightLoadRef.current;
     if (inFlight && inFlight.userId === userId) {
       markTenantPerf('load-joined-in-flight', `reason=${reason} key=${requestKey}`);
       return inFlight.promise;
     }
 
-    if (!force && lastLoadedResultRef.current && (lastLoadedKeyRef.current === requestKey || lastLoadedRequestKeyRef.current === requestKey)) {
+    if (!restoredFromCache && !force && lastLoadedResultRef.current && (lastLoadedKeyRef.current === requestKey || lastLoadedRequestKeyRef.current === requestKey)) {
       markTenantPerf('load-skipped-cached', `reason=${reason} key=${requestKey}`);
       return lastLoadedResultRef.current;
     }
@@ -144,7 +189,7 @@ export function TenantProvider({ children }) {
     const runLoad = async () => {
       const loadStartedAt = typeof performance !== 'undefined' ? performance.now() : null;
       markTenantPerf(isBackground ? 'background-refresh-network-start' : 'core-load-start', `reason=${reason} key=${requestKey}${force ? ' force=true' : ''}`);
-      if (!isBackground) setLoading(true);
+      if (!isBackground && !restoredFromCache) setLoading(true);
       try {
         const snapshotResult = await timedTenantQuery(
           'tenant-dashboard-snapshot',
@@ -203,6 +248,7 @@ export function TenantProvider({ children }) {
           lastLoadedKeyRef.current = null;
           lastLoadedRequestKeyRef.current = null;
           lastLoadedResultRef.current = null;
+          clearTenantDashboardCache(userId);
           return false;
         }
 
@@ -268,6 +314,15 @@ export function TenantProvider({ children }) {
         lastLoadedKeyRef.current = tenantLoadKey(userId, tenantData.id, tenantData.property_id);
         lastLoadedRequestKeyRef.current = requestKey;
         lastLoadedResultRef.current = result;
+        writeTenantDashboardCache(userId, {
+          tenant: tenantData,
+          room: tenantData.rooms || null,
+          property: tenantData.property || null,
+          owner: ownerResult.data || null,
+          roommates: roommateRows,
+          roommateVacateAlert: vacateAlert,
+          dashboardSnapshot: snapshotData,
+        });
         markTenantPerf(isBackground ? 'background-refresh-finish' : 'core-load-finish', `reason=${reason} key=${lastLoadedKeyRef.current}`, loadStartedAt);
         return result;
       } catch (loadError) {
@@ -302,6 +357,7 @@ export function TenantProvider({ children }) {
   }, []);
 
   const clearTenantData = useCallback(() => {
+    clearTenantDashboardCache(userIdRef.current);
     inFlightLoadRef.current = null;
     lastLoadedKeyRef.current = null;
     lastLoadedRequestKeyRef.current = null;

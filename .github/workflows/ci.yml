@@ -54,13 +54,16 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Validate database migrations
-        run: supabase db start
+        run: supabase start
 
       - name: Run room change rent database tests
         run: docker exec -i supabase_db_hostelset psql -U postgres -d postgres -v ON_ERROR_STOP=1 -P pager=off < scripts/room-change-rent-db-tests.sql
 
       - name: Run approved vacate cancellation database tests
         run: docker exec -i supabase_db_hostelset psql -U postgres -d postgres -v ON_ERROR_STOP=1 -P pager=off < scripts/vacate-cancellation-db-tests.sql
+
+      - name: Run property membership guard database tests
+        run: docker exec -i supabase_db_hostelset psql -U postgres -d postgres -v ON_ERROR_STOP=1 -P pager=off < scripts/property-membership-guard-db-tests.sql
 
       - name: Run regression tests
         run: npm test

@@ -24,6 +24,9 @@ const emptySnapshot = {
   notices: [],
 }
 
+const ADMIN_OVERVIEW_CACHE_KEY = 'hostelset_admin_overview_snapshot_v1'
+const SNAPSHOT_CACHE_TTL_MS = 5 * 60 * 1000
+
 const toCount = value => Number.isFinite(Number(value)) ? Number(value) : 0
 
 const normalizeSnapshot = data => ({
@@ -45,6 +48,28 @@ const normalizeSnapshot = data => ({
   notices: Array.isArray(data?.notices) ? data.notices : [],
 })
 
+const readCachedSnapshot = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const cached = JSON.parse(window.sessionStorage.getItem(ADMIN_OVERVIEW_CACHE_KEY) || 'null')
+    if (!cached?.snapshot || !Number.isFinite(Number(cached?.cachedAt))) return null
+    if (Date.now() - Number(cached.cachedAt) > SNAPSHOT_CACHE_TTL_MS) return null
+    return cached.snapshot
+  } catch {
+    return null
+  }
+}
+
+const writeCachedSnapshot = snapshot => {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.setItem(ADMIN_OVERVIEW_CACHE_KEY, JSON.stringify({
+      cachedAt: Date.now(),
+      snapshot,
+    }))
+  } catch {}
+}
+
 export function useAdminOverviewSnapshot(enabled = true) {
   const [snapshot, setSnapshot] = useState(emptySnapshot)
   const [loading, setLoading] = useState(true)
@@ -60,6 +85,7 @@ export function useAdminOverviewSnapshot(enabled = true) {
       if (error) throw error
       const normalized = normalizeSnapshot(data)
       setSnapshot(normalized)
+      writeCachedSnapshot(normalized)
       return normalized
     } catch (error) {
       console.error('Admin overview snapshot load failed:', error)
@@ -71,7 +97,15 @@ export function useAdminOverviewSnapshot(enabled = true) {
   }, [enabled])
 
   useEffect(() => {
-    if (enabled) loadSnapshot(false)
+    if (!enabled) return
+    const cached = readCachedSnapshot()
+    if (cached) {
+      setSnapshot(cached)
+      setLoading(false)
+      loadSnapshot({ background: true })
+      return
+    }
+    loadSnapshot(false)
   }, [enabled, loadSnapshot])
 
   useRealtimeRefresh(

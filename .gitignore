@@ -25,6 +25,9 @@ rent-cycle-room-change-audit.txt
 tenant-create-audit.txt
 tenant-table-usage.txt
 
+# Generated QA reports
+/qa-results/
+
 # Playwright
 /test-results/
 /playwright-report/
@@ -35,3 +38,4 @@ tenant-table-usage.txt
 /test-results-production/
 
 supabase/.branches/
+.env*.local

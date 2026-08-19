@@ -6,6 +6,7 @@ import { enrichTenantRentStatus } from '../lib/tenantRentStatus';
 import { isPendingRentPayment } from '../lib/rentDue';
 import { cleanupRealtimeChannel, createRealtimeChannel, logRealtimeEvent, subscribeRealtimeChannel } from '../lib/realtime';
 import toast from 'react-hot-toast';
+import { summarizeOwnerRooms } from '../products/hostels/owner/rooms';
 
 const OwnerContext = createContext();
 const PENDING_RENT_STATUSES = ['payment_pending', 'pending', 'pending_confirmation', 'pending_owner_verification'];
@@ -54,11 +55,6 @@ const upsertRecord = (records, record) => {
 };
 
 const removeRecord = (records, id) => id ? records.filter(item => item.id !== id) : records;
-const summarizeRooms = (rows = []) => {
-  const totalRooms = rows.length;
-  const occupied = rows.filter(room => Number(room.current_occupants || 0) >= Number(room.capacity || 0)).length;
-  return { totalRooms, occupied, vacant: totalRooms - occupied };
-};
 const summarizeOwnerRentStats = (rows = []) => ({
   pendingAmount: rows.reduce((sum, tenant) => sum + Math.max(Number(tenant.pending_amount || 0), 0), 0),
   overdueCount: rows.filter(tenant => tenant.rentSummary?.status === 'overdue' || tenant.dueStatus?.status === 'overdue').length,
@@ -169,7 +165,7 @@ export function OwnerProvider({ children }) {
           if (pendingPaymentsResult.error) throw pendingPaymentsResult.error;
           if (allPaymentsResult.error) throw allPaymentsResult.error;
           setRooms(roomsData || []);
-          const total = roomsData?.length || 0; const occupied = roomsData?.filter(r => r.current_occupants >= r.capacity).length || 0; const vacant = total - occupied;
+          const { totalRooms: total, occupied, vacant } = summarizeOwnerRooms(roomsData || [], { coerceNumbers: false });
           const rentPaymentsForStatus = rentPaymentsResult.data || [];
           const paymentsByTenant = rentPaymentsForStatus.reduce((grouped, payment) => {
             if (!grouped.has(payment.tenant_id)) grouped.set(payment.tenant_id, []);
@@ -408,7 +404,7 @@ export function OwnerProvider({ children }) {
     if (payload.eventType === 'DELETE') {
       setRooms(current => {
         const next = removeRecord(current, row.id);
-        setStats(prev => ({ ...prev, ...summarizeRooms(next) }));
+        setStats(prev => ({ ...prev, ...summarizeOwnerRooms(next) }));
         return next;
       });
       markOwnerDataPerf('realtime-local-patch', `table=rooms action=delete id=${row.id}`);
@@ -417,7 +413,7 @@ export function OwnerProvider({ children }) {
     if (row.property_id !== property?.id) return;
     setRooms(current => {
       const next = upsertRecord(current, row);
-      setStats(prev => ({ ...prev, ...summarizeRooms(next) }));
+      setStats(prev => ({ ...prev, ...summarizeOwnerRooms(next) }));
       return next;
     });
     markOwnerDataPerf('realtime-local-patch', `table=rooms action=${String(payload.eventType || '').toLowerCase()} id=${row.id}`);

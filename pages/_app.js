@@ -1,5 +1,4 @@
 import '../styles/globals.css'
-import 'leaflet/dist/leaflet.css'
 import { Toaster, toast } from 'react-hot-toast'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
@@ -30,7 +29,7 @@ function ProtectedRouteLoading() {
 
 export default function App({ Component, pageProps }) {
   const router = useRouter()
-  const [authorized, setAuthorized] = useState(false)
+  const [authorized, setAuthorized] = useState(() => isDashboardPath(router.pathname))
   const isDashboardRoute = isDashboardPath(router.pathname)
   const errorBoundaryKey = isDashboardRoute ? router.pathname : router.asPath
 
@@ -84,16 +83,21 @@ export default function App({ Component, pageProps }) {
           syncServerSession(session).catch(() => {})
           setAuthorized(true)
         }
-        else if (router.pathname !== '/login') router.replace(`/login?next=${encodeURIComponent(router.asPath)}`)
+        else if (router.pathname !== '/login') {
+          setAuthorized(false)
+          router.replace(`/login?next=${encodeURIComponent(router.asPath)}`)
+        }
       } catch (e) {
         // If accessing localStorage fails, treat as not authorized for protected routes
         const isProtectedRoute = isDashboardPath(router.pathname)
-        if (isProtectedRoute && router.pathname !== '/login') router.replace(`/login?next=${encodeURIComponent(router.asPath)}`)
+        if (isProtectedRoute && router.pathname !== '/login') {
+          setAuthorized(false)
+          router.replace(`/login?next=${encodeURIComponent(router.asPath)}`)
+        }
         else setAuthorized(true)
       }
     }
 
-    setAuthorized(false)
     checkSession()
     return () => { active = false }
   }, [router.pathname])

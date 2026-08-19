@@ -18,6 +18,14 @@ const supabaseWebSocketOrigin = supabaseHttpOrigin
   ? supabaseHttpOrigin.replace(/^http/, 'ws')
   : null
 
+const supabaseImageHost = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  } catch {
+    return null
+  }
+})()
+
 const compact = (values) => values.filter(Boolean)
 
 const optionalOrigin = (value) => {
@@ -68,9 +76,31 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: false,
   devIndicators: false,
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+      ...(supabaseImageHost ? [{
+        protocol: 'https',
+        hostname: supabaseImageHost,
+        pathname: '/storage/v1/object/public/**',
+      }] : []),
+    ],
+  },
   ...(!isProduction ? { allowedDevOrigins: ['172.20.10.7'] } : {}),
   async headers() {
     return [
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          ...securityHeaders,
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
       {
         source: '/(.*)',
         headers: securityHeaders,
