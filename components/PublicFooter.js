@@ -44,10 +44,10 @@ const footerGroups = [
 
 export default function PublicFooter({ dark = false }) {
   const year = new Date().getFullYear()
-  const shell = dark ? 'border-t border-white/10 bg-slate-950 text-slate-300' : 'mt-12 border-t border-slate-200 bg-white text-slate-600'
-  const muted = dark ? 'text-slate-400' : 'text-slate-500'
-  const heading = dark ? 'text-white' : 'text-slate-900'
-  const linkClass = dark ? 'text-slate-400 hover:text-orange-200' : 'text-slate-600 hover:text-indigo-700'
+  const shell = dark ? 'border-t border-white/10 bg-slate-950 text-slate-300' : 'mt-12 border-t border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300'
+  const muted = dark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'
+  const heading = dark ? 'text-white' : 'text-slate-900 dark:text-white'
+  const linkClass = dark ? 'text-slate-400 hover:text-orange-200' : 'text-slate-600 hover:text-orange-700 dark:text-slate-400 dark:hover:text-orange-200'
 
   return (
     <footer className={`${shell} w-full overflow-hidden py-6 sm:py-10`}>

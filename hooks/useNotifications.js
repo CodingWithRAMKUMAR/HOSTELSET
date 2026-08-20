@@ -35,6 +35,7 @@ export function useNotifications() {
       .from('notifications')
       .select('*')
       .eq('recipient_user_id', userId)
+      .eq('is_read', false)
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -52,14 +53,22 @@ export function useNotifications() {
   }, [])
 
   const markRead = useCallback(async (id) => {
-    setNotifications(current => current.map(item => item.id === id ? { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() } : item))
-    await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', id)
+    setNotifications(current => {
+      const next = current.filter(item => item.id !== id)
+      notificationCount.current = next.length
+      return next
+    })
+    seenIds.current.delete(id)
+    await supabase.from('notifications').delete().eq('id', id)
   }, [])
 
   const markAllRead = useCallback(async () => {
-    const now = new Date().toISOString()
-    setNotifications(current => current.map(item => ({ ...item, is_read: true, read_at: item.read_at || now })))
-    await supabase.from('notifications').update({ is_read: true, read_at: now }).eq('is_read', false)
+    const userId = currentUserId.current
+    setNotifications([])
+    seenIds.current.clear()
+    notificationCount.current = 0
+    if (!userId) return
+    await supabase.from('notifications').delete().eq('recipient_user_id', userId)
   }, [])
 
   const requestBrowserPermission = useCallback(async () => {
@@ -113,12 +122,19 @@ export function useNotifications() {
           showBrowserNotification(notification)
         })
         .on('postgres_changes', {
-          event: 'UPDATE',
+          event: 'DELETE',
           schema: 'public',
           table: 'notifications',
           filter: `recipient_user_id=eq.${currentUserId.current}`,
         }, payload => {
-          setNotifications(current => current.map(item => item.id === payload.new.id ? payload.new : item))
+          const deletedId = payload.old?.id
+          if (!deletedId) return
+          seenIds.current.delete(deletedId)
+          setNotifications(current => {
+            const next = current.filter(item => item.id !== deletedId)
+            notificationCount.current = next.length
+            return next
+          })
         })
         .subscribe(status => {
           if (active) setRealtimeConnected(status === 'SUBSCRIBED')

@@ -15,7 +15,7 @@ function LoginMenuLinks({ onClose, dark }) {
       role="menuitem"
       onClick={onClose}
       href={option.href}
-      className={`block rounded-xl px-3 py-3 text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:py-2.5 ${dark ? 'text-slate-100 hover:bg-white/10' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-700'}`}
+      className={`block rounded-xl px-3 py-3 text-sm font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 lg:py-2.5 ${dark ? 'text-slate-100 hover:bg-white/10' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-700 dark:text-slate-100 dark:hover:bg-orange-500/10 dark:hover:text-orange-200'}`}
     >
       {option.label}
     </Link>
@@ -52,7 +52,7 @@ function LoginChooser({ open, onClose, dark, desktop = false }) {
 
   const tone = dark
     ? 'border-white/10 bg-slate-900/95 shadow-black/30'
-    : 'border-slate-200 bg-white shadow-slate-200/80'
+    : 'border-slate-200 bg-white shadow-slate-200/80 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/30'
   const placement = desktop
     ? 'absolute right-0 top-[calc(100%+0.75rem)] z-[140] hidden w-60 lg:grid'
     : 'mb-3 ml-auto mr-3 grid w-[calc(100%_-_1.5rem)] max-w-md lg:hidden'
@@ -92,16 +92,16 @@ export default function PublicHeader({ dark = true, floating = false, showNav = 
     ? floating
       ? 'relative z-[130] border border-white/10 bg-white/[0.04] text-white backdrop-blur'
       : 'relative z-[130] border-b border-white/10 bg-slate-950 text-white'
-    : 'relative z-[130] border-b border-slate-200 bg-white text-slate-900'
+    : 'relative z-[130] border-b border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:text-white'
   const inner = floating
     ? 'relative z-[100] grid grid-cols-[auto_auto] items-center justify-between gap-3 overflow-visible rounded-3xl px-3 py-2.5 sm:rounded-full sm:px-4 sm:py-3 lg:grid-cols-[auto_minmax(0,1fr)_auto]'
     : 'mx-auto grid w-full max-w-7xl grid-cols-[auto_auto] items-center justify-between gap-3 overflow-visible px-4 py-3 sm:px-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:px-8'
   const navClass = dark
     ? 'text-slate-300 hover:text-white'
-    : 'text-slate-600 hover:text-slate-950'
+    : 'text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white'
   const loginButton = dark
     ? 'public-login-button rounded-full px-4 py-2 text-sm font-black shadow-lg shadow-black/20 transition'
-    : 'rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700'
+    : 'rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:border-orange-500/50 dark:hover:bg-orange-500/10 dark:hover:text-orange-200'
 
   return (
     <header className={shell}>

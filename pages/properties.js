@@ -6,6 +6,7 @@ import { formatCurrency } from '../lib/utils'
 import NearbyHostelMap from '../components/maps/NearbyHostelMap'
 import { usePublicRealtimeRefresh as useRealtimeRefresh } from '../hooks/usePublicRealtimeRefresh'
 import PublicFooter from '../components/PublicFooter'
+import PublicHeader from '../components/PublicHeader'
 import { propertyPublicPath } from '../lib/propertySlug'
 import {
   PAGE_DESCRIPTION,
@@ -171,16 +172,8 @@ export default function PropertiesPage() {
       </Head>
 
       <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
-        <div className="border-b border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-950 sm:px-6 sm:py-5">
-          <div className="container mx-auto mb-5 flex flex-wrap items-center justify-between gap-3">
-            <Link href="/" className="text-sm font-black text-slate-900 dark:text-white">HostelSet</Link>
-            <nav className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300" aria-label="Browse navigation">
-              <Link href="/" className="hover:text-slate-950 dark:hover:text-white">Home</Link>
-              <Link href="/faq" className="hover:text-slate-950 dark:hover:text-white">FAQ</Link>
-              <Link href="/login/tenant" className="hover:text-slate-950 dark:hover:text-white">Tenant Login</Link>
-              <Link href="/register" className="rounded-full bg-slate-900 px-3 py-1.5 text-white hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">Register Your Property</Link>
-            </nav>
-          </div>
+        <PublicHeader dark={false} />
+        <div className="border-b border-slate-200 bg-white px-4 py-8 dark:border-slate-800 dark:bg-slate-950 sm:px-6 sm:py-10">
           <div className="container mx-auto text-center">
             <motion.h1 initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white md:text-5xl">
               Find Your Perfect PG

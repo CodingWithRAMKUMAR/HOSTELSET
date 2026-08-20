@@ -22,7 +22,7 @@ export default function Support() {
       <h2 className="text-xl font-semibold text-slate-900">How do I request to vacate?</h2>
       <p>A vacate request is available only when required rent obligations are cleared, no payment is awaiting verification, and no active vacate request exists. Approval starts the applicable notice-period workflow.</p>
       <h2 className="text-xl font-semibold text-slate-900">I cannot log in</h2>
-      <p>Confirm that you are using the email or phone associated with your account and the latest password. Try password recovery if needed. For further help, contact <a className="font-semibold text-indigo-700 underline" href="mailto:support@hostelset.com">support@hostelset.com</a>.</p>
+      <p>Confirm that you are using the email or phone associated with your account and the latest password. Try password recovery if needed. For further help, contact <a className="font-semibold text-orange-700 underline dark:text-orange-300" href="mailto:support@hostelset.com">support@hostelset.com</a>.</p>
     </PublicInfoPage>
   )
 }

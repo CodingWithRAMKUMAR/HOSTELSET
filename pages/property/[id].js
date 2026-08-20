@@ -760,7 +760,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-white">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading property details...</p>
+          <p className="text-slate-500">Loading property details...</p>
         </div>
       </div>
     )
@@ -889,7 +889,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
       </Head>
       {/* Header – unchanged */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
+      <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2">
@@ -906,13 +906,13 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <Link href="/properties" className="flex items-center gap-2 text-gray-500 hover:text-slate-800 mb-6 transition group">
+        <Link href="/properties" className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-6 transition group">
           <span className="group-hover:-translate-x-1 transition">←</span> Back to Search
         </Link>
 
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">{property.name}</h1>
-          <div className="flex flex-wrap items-center gap-4 text-gray-500">
+          <div className="flex flex-wrap items-center gap-4 text-slate-500">
             <span className="flex items-center gap-1">📍 {property.address}, {property.city}</span>
             <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
             {property.rating && property.total_reviews > 0 && <span className="flex items-center gap-1">⭐ {property.rating} ({property.total_reviews} reviews)</span>}
@@ -969,10 +969,10 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
         {activeTab === 'rooms' && (
           <>
             {hasNoRooms ? (
-              <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-12 text-center border border-gray-100">
+              <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-12 text-center border border-slate-100">
                 <div className="text-5xl mb-4">🏠</div>
                 <h3 className="text-xl font-semibold text-slate-800 mb-2">No Rooms Available</h3>
-                <p className="text-gray-500">This property currently has no rooms listed. Please check back later.</p>
+                <p className="text-slate-500">This property currently has no rooms listed. Please check back later.</p>
               </div>
             ) : (
               <div className="grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -1004,7 +1004,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                     badgeColor = 'bg-blue-100 text-blue-700'
                   } else {
                     badgeText = 'Full'
-                    badgeColor = 'bg-gray-100 text-gray-500'
+                    badgeColor = 'bg-slate-100 text-slate-500'
                   }
 
                   return (
@@ -1014,7 +1014,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.18 }}
                       className={`group flex h-full min-w-0 flex-col rounded-2xl border bg-white text-slate-900 shadow-md transition-all duration-150 hover:-translate-y-0.5 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 ${
-                        isAvailable ? 'border-green-200 hover:border-green-400' : (isPrebookable ? 'border-blue-200 hover:border-blue-400' : 'border-gray-200 dark:border-slate-700')
+                        isAvailable ? 'border-green-200 hover:border-green-400' : (isPrebookable ? 'border-blue-200 hover:border-blue-400' : 'border-slate-200 dark:border-slate-700')
                       }`}
                     >
                       <div className="flex h-full min-w-0 flex-col p-5 sm:p-6">
@@ -1108,23 +1108,23 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:p-8">
             <h2 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">About this Property</h2>
             <p className="leading-relaxed text-slate-700 dark:text-slate-200">{property.description || 'No description provided.'}</p>
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="mt-6 pt-6 border-t border-slate-200">
               <h3 className="font-semibold text-slate-800 mb-2">Property Details</h3>
               <div className="grid sm:grid-cols-2 gap-4 text-sm">
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500">Property Type</span>
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Property Type</span>
                   <span className="text-slate-700">{getPropertyTypeLabel(property.property_type)}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500">Total Rooms</span>
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Total Rooms</span>
                   <span className="text-slate-700">{rooms.length}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500">Location</span>
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Location</span>
                   <span className="text-slate-700">{property.city}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500">Listed Since</span>
+                <div className="flex justify-between py-2 border-b border-slate-100">
+                  <span className="text-slate-500">Listed Since</span>
                   <span className="text-slate-700">{new Date(property.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -1197,7 +1197,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
           </div>
 
           <div className="mt-8 border-t border-slate-200 pt-6">
-            <Link href="/properties" className="font-semibold text-indigo-700 hover:text-indigo-800">Browse all properties</Link>
+            <Link href="/properties" className="font-semibold text-orange-700 hover:text-orange-800 dark:text-orange-300 dark:hover:text-orange-200">Browse all properties</Link>
             {similarProperties.length > 0 && (
               <div className="mt-4">
                 <h3 className="font-semibold text-slate-800">More properties in {city}</h3>
@@ -1208,8 +1208,8 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                 </div>
               </div>
             )}
-            {similarProperties.some(similar => similar.address || similar.formatted_address) && <div className="mt-4"><h3 className="font-semibold text-slate-800">Nearby localities</h3><div className="mt-2 flex flex-wrap gap-3">{similarProperties.filter(similar => similar.address || similar.formatted_address).map(similar => <Link key={`locality-${similar.id}`} href={propertyPublicPath(similar)} className="text-sm font-medium text-indigo-700 underline">{similar.address || similar.formatted_address}</Link>)}</div></div>}
-            <div className="mt-4 flex flex-wrap gap-4 text-sm"><Link href="/about" className="font-semibold text-indigo-700 hover:text-indigo-800">About HostelSet</Link><Link href="/support" className="font-semibold text-indigo-700 hover:text-indigo-800">Support</Link></div>
+            {similarProperties.some(similar => similar.address || similar.formatted_address) && <div className="mt-4"><h3 className="font-semibold text-slate-800">Nearby localities</h3><div className="mt-2 flex flex-wrap gap-3">{similarProperties.filter(similar => similar.address || similar.formatted_address).map(similar => <Link key={`locality-${similar.id}`} href={propertyPublicPath(similar)} className="text-sm font-medium text-orange-700 underline dark:text-orange-300">{similar.address || similar.formatted_address}</Link>)}</div></div>}
+            <div className="mt-4 flex flex-wrap gap-4 text-sm"><Link href="/about" className="font-semibold text-orange-700 hover:text-orange-800 dark:text-orange-300 dark:hover:text-orange-200">About HostelSet</Link><Link href="/support" className="font-semibold text-orange-700 hover:text-orange-800 dark:text-orange-300 dark:hover:text-orange-200">Support</Link></div>
           </div>
         </section>
 
@@ -1239,14 +1239,14 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                 <button onClick={() => setShowApplyModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
               </div>
               <div className="space-y-4">
-                <input type="text" placeholder="Full Name *" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400" value={applyForm.name} onChange={(e) => setApplyForm({...applyForm, name: e.target.value})} />
+                <input type="text" placeholder="Full Name *" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-400" value={applyForm.name} onChange={(e) => setApplyForm({...applyForm, name: e.target.value})} />
                 <div>
                   <div className="flex gap-2">
-                    <span className="bg-gray-100 px-4 py-3 rounded-xl border border-gray-200 text-gray-600">+91</span>
+                    <span className="bg-slate-100 px-4 py-3 rounded-xl border border-slate-200 text-gray-600">+91</span>
                     <input 
                       type="tel" 
                       placeholder="Phone Number *" 
-                      className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${phoneError ? 'border-red-500 focus:ring-red-400' : 'border-gray-200 focus:ring-slate-400'}`}
+                      className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${phoneError ? 'border-red-500 focus:ring-red-400' : 'border-slate-200 focus:ring-slate-400'}`}
                       value={applyForm.phone} 
                       onChange={(e) => { setApplyForm({...applyForm, phone: e.target.value}); setPhoneValid(false); setPhoneError('') }}
                       onBlur={handlePhoneBlur}
@@ -1260,7 +1260,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                   <input 
                     type="email" 
                     placeholder="Email * (will be used for login)" 
-                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${emailError ? 'border-red-500 focus:ring-red-400' : 'border-gray-200 focus:ring-slate-400'}`}
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${emailError ? 'border-red-500 focus:ring-red-400' : 'border-slate-200 focus:ring-slate-400'}`}
                     value={applyForm.email} 
                     onChange={(e) => { setApplyForm({...applyForm, email: e.target.value}); setEmailValid(false); setEmailError('') }}
                     onBlur={handleEmailBlur}
@@ -1271,12 +1271,12 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                 </div>
                 <label className="block text-sm font-medium text-slate-700">
                   Blood group *
-                  <select required value={applyForm.bloodGroup} onChange={(e) => setApplyForm({...applyForm, bloodGroup: e.target.value})} className="mt-1 w-full px-4 py-3 border border-gray-200 rounded-xl bg-white">
+                  <select required value={applyForm.bloodGroup} onChange={(e) => setApplyForm({...applyForm, bloodGroup: e.target.value})} className="mt-1 w-full px-4 py-3 border border-slate-200 rounded-xl bg-white">
                     <option value="">Select blood group</option>
                     {BLOOD_GROUPS.map(group => <option key={group} value={group}>{group}</option>)}
                   </select>
                 </label>
-                <textarea placeholder="Any message for the owner?" rows="3" className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none" value={applyForm.message} onChange={(e) => setApplyForm({...applyForm, message: e.target.value})} />
+                <textarea placeholder="Any message for the owner?" rows="3" className="w-full px-4 py-3 border border-slate-200 rounded-xl resize-none" value={applyForm.message} onChange={(e) => setApplyForm({...applyForm, message: e.target.value})} />
                 <div>
                   <label className="block text-sm font-semibold mb-1">ID Proof (Aadhaar/PAN) *</label>
                   <input type="file" accept="image/*,.pdf" onChange={e => handleFileChange(e, setIdProof)} className="w-full" />
@@ -1325,7 +1325,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1">UPI Transaction ID / UTR *</label>
-                  <input type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl" value={transactionId} onChange={e => setTransactionId(e.target.value)} />
+                  <input type="text" className="w-full px-4 py-3 border border-slate-200 rounded-xl" value={transactionId} onChange={e => setTransactionId(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1">Payment Screenshot *</label>
@@ -1345,7 +1345,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                 <button onClick={submitPayment} disabled={paymentSubmitting || !ownerSettings.upi_id} className="w-full bg-slate-800 text-white py-3 rounded-xl font-semibold hover:bg-slate-700 transition disabled:opacity-50">
                   {paymentSubmitting ? paymentProgress || 'Processing...' : 'I Have Paid – Submit'}
                 </button>
-                <button onClick={closePaymentModal} disabled={paymentSubmitting} className="w-full text-center text-gray-500 text-sm disabled:opacity-50">Cancel</button>
+                <button onClick={closePaymentModal} disabled={paymentSubmitting} className="w-full text-center text-slate-500 text-sm disabled:opacity-50">Cancel</button>
               </div>
             </motion.div>
           </div>
@@ -1362,14 +1362,14 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                 <button onClick={() => setShowPrebookModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
               </div>
               <div className="space-y-4">
-                <input type="text" placeholder="Full Name *" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" value={prebookForm.name} onChange={e => setPrebookForm({...prebookForm, name: e.target.value})} />
+                <input type="text" placeholder="Full Name *" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400" value={prebookForm.name} onChange={e => setPrebookForm({...prebookForm, name: e.target.value})} />
                 <div>
                   <div className="flex gap-2">
-                    <span className="bg-gray-100 px-4 py-3 rounded-xl border border-gray-200 text-gray-600">+91</span>
+                    <span className="bg-slate-100 px-4 py-3 rounded-xl border border-slate-200 text-gray-600">+91</span>
                     <input 
                       type="tel" 
                       placeholder="Phone Number *" 
-                      className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${prebookPhoneError ? 'border-red-500 focus:ring-red-400' : 'border-gray-200 focus:ring-blue-400'}`}
+                      className={`flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${prebookPhoneError ? 'border-red-500 focus:ring-red-400' : 'border-slate-200 focus:ring-blue-400'}`}
                       value={prebookForm.phone} 
                       onChange={(e) => { setPrebookForm({...prebookForm, phone: e.target.value}); setPrebookPhoneValid(false); setPrebookPhoneError('') }}
                       onBlur={handlePrebookPhoneBlur}
@@ -1383,7 +1383,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                   <input 
                     type="email" 
                     placeholder="Email *" 
-                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${prebookEmailError ? 'border-red-500 focus:ring-red-400' : 'border-gray-200 focus:ring-blue-400'}`}
+                    className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 ${prebookEmailError ? 'border-red-500 focus:ring-red-400' : 'border-slate-200 focus:ring-blue-400'}`}
                     value={prebookForm.email} 
                     onChange={(e) => { setPrebookForm({...prebookForm, email: e.target.value}); setPrebookEmailValid(false); setPrebookEmailError('') }}
                     onBlur={handlePrebookEmailBlur}
@@ -1394,10 +1394,10 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1">Expected Move‑in Date *</label>
-                  <input type="date" className="w-full px-4 py-3 border border-gray-200 rounded-xl" value={prebookForm.move_in_date} onChange={e => setPrebookForm({...prebookForm, move_in_date: e.target.value})} min={new Date().toISOString().split('T')[0]} />
+                  <input type="date" className="w-full px-4 py-3 border border-slate-200 rounded-xl" value={prebookForm.move_in_date} onChange={e => setPrebookForm({...prebookForm, move_in_date: e.target.value})} min={new Date().toISOString().split('T')[0]} />
                   <p className="text-xs text-gray-400 mt-1">Based on the current tenant’s vacate date.</p>
                 </div>
-                <textarea placeholder="Any message for the owner?" rows="3" className="w-full px-4 py-3 border border-gray-200 rounded-xl resize-none" value={prebookForm.message} onChange={(e) => setPrebookForm({...prebookForm, message: e.target.value})} />
+                <textarea placeholder="Any message for the owner?" rows="3" className="w-full px-4 py-3 border border-slate-200 rounded-xl resize-none" value={prebookForm.message} onChange={(e) => setPrebookForm({...prebookForm, message: e.target.value})} />
                 <div>
                   <label className="block text-sm font-semibold mb-1">ID Proof (Aadhaar/PAN) *</label>
                   <input type="file" accept="image/*,.pdf" onChange={e => handleFileChange(e, setPrebookIdProof)} className="w-full" />
@@ -1438,7 +1438,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
               <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
                 <p className="text-sm text-gray-600">Room {rooms.find(r => r.id === prebookRoomId)?.room_number}</p>
                 <p className="text-lg font-bold mt-1">Non‑refundable Fee: {formatCurrency(ownerSettings.pre_booking_fee)}</p>
-                <p className="text-xs text-gray-500 mt-1">This amount will be adjusted against your first month's rent.</p>
+                <p className="text-xs text-slate-500 mt-1">This amount will be adjusted against your first month's rent.</p>
                 <div className="mt-2 p-2 bg-yellow-100 rounded text-xs text-yellow-800">
                   ⚠️ If you do not move in by the expected date, your booking will be cancelled and the fee will not be refunded.
                 </div>
@@ -1453,7 +1453,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold mb-1">UPI Transaction ID / UTR *</label>
-                  <input type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl" value={prebookTransactionId} onChange={e => setPrebookTransactionId(e.target.value)} />
+                  <input type="text" className="w-full px-4 py-3 border border-slate-200 rounded-xl" value={prebookTransactionId} onChange={e => setPrebookTransactionId(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-1">Payment Screenshot *</label>
@@ -1470,7 +1470,7 @@ export default function PropertyDetail({ initialProperty = null, initialRooms = 
                 <button onClick={submitPreBookingPayment} disabled={prebookPaymentSubmitting || !ownerSettings.upi_id} className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">
                   {prebookPaymentSubmitting ? prebookPaymentProgress || 'Submitting...' : 'Submit Payment Proof'}
                 </button>
-                <button onClick={() => { if (!prebookPaymentSubmitting) setShowPrebookPaymentModal(false) }} disabled={prebookPaymentSubmitting} className="w-full text-center text-gray-500 text-sm disabled:opacity-50">Cancel</button>
+                <button onClick={() => { if (!prebookPaymentSubmitting) setShowPrebookPaymentModal(false) }} disabled={prebookPaymentSubmitting} className="w-full text-center text-slate-500 text-sm disabled:opacity-50">Cancel</button>
               </div>
             </motion.div>
           </div>
