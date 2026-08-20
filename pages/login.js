@@ -189,8 +189,8 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-gradient-to-br from-gray-50 to-white px-2 py-2 sm:p-4">
-      <div className="w-full max-w-md animate-fade-in rounded-2xl border border-gray-100 bg-white p-4 shadow-xl sm:p-6 md:p-8">
+    <div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-white px-2 py-2 dark:bg-slate-950 sm:p-4">
+      <div className="w-full max-w-md animate-fade-in rounded-2xl border border-gray-100 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:p-6 md:p-8">
         <div className="mb-4 text-center sm:mb-6">
           <BrandLogo size="login" priority className="mx-auto mb-1 max-h-20 w-auto sm:mb-2 sm:max-h-28" />
           <h1 className="text-xl font-bold text-slate-900">{roleCopy.title}</h1>

@@ -179,9 +179,9 @@ export default function RegisterProperty() {
   if (checkingAuth) return <div className="min-h-screen flex items-center justify-center text-slate-600">Checking owner access...</div>
 
   return (
-    <div className="min-h-screen py-12 bg-gradient-to-br from-gray-50 to-white">
+    <div className="min-h-screen py-12 bg-gradient-to-br from-slate-50 to-white">
       <div className="container mx-auto max-w-4xl px-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
           <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-8 py-6">
             <h1 className="text-2xl font-bold text-white">Add New Property</h1>
             <p className="text-slate-300 text-sm mt-1">Create another property under your existing owner account.</p>
@@ -191,30 +191,30 @@ export default function RegisterProperty() {
             <div className="flex justify-between mb-8">
               {[1, 2, 3, 4].map(s => (
                 <div key={s} className="flex-1 text-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto transition-all ${step >= s ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-400'}`}>{s}</div>
-                  <p className="text-xs mt-2 text-gray-500">{s === 1 ? 'Property' : s === 2 ? 'Rooms' : s === 3 ? 'Photos' : 'Review'}</p>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto transition-all ${step >= s ? 'bg-slate-800 text-white' : 'bg-slate-100 text-gray-400'}`}>{s}</div>
+                  <p className="text-xs mt-2 text-slate-500">{s === 1 ? 'Property' : s === 2 ? 'Rooms' : s === 3 ? 'Photos' : 'Review'}</p>
                 </div>
               ))}
             </div>
 
             {step === 1 && (
               <div className="space-y-4">
-                <input name="name" value={formData.name} placeholder="Property Name *" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
-                <textarea name="description" value={formData.description} placeholder="Property Description" rows="3" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
-                <input name="address" value={formData.address} placeholder="Full Address *" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                <input name="name" value={formData.name} placeholder="Property Name *" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                <textarea name="description" value={formData.description} placeholder="Property Description" rows="3" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                <input name="address" value={formData.address} placeholder="Full Address *" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <input name="city" value={formData.city} placeholder="City *" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
-                  <input name="locality" value={formData.locality} placeholder="Locality" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
-                  <input name="pincode" value={formData.pincode} placeholder="Pincode" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
-                  <input name="contactPhone" value={formData.contactPhone} placeholder="Contact Phone" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                  <input name="city" value={formData.city} placeholder="City *" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                  <input name="locality" value={formData.locality} placeholder="Locality" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                  <input name="pincode" value={formData.pincode} placeholder="Pincode" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                  <input name="contactPhone" value={formData.contactPhone} placeholder="Contact Phone" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
                 </div>
-                <select name="propertyType" value={formData.propertyType} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange}>
+                <select name="propertyType" value={formData.propertyType} className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange}>
                   <option value="boys">Boys PG</option>
                   <option value="girls">Girls PG</option>
                   <option value="co-ed">Co-ed PG</option>
                   <option value="professionals">Working Professionals</option>
                 </select>
-                <input name="ownerUpiId" value={formData.ownerUpiId} placeholder="UPI ID for payments" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
+                <input name="ownerUpiId" value={formData.ownerUpiId} placeholder="UPI ID for payments" className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-800" onChange={handleChange} />
                 <LocationPicker value={location} onChange={next => { setLocation(next); setFormData(current => ({ ...current, address: next.formatted_address || current.address, city: next.city || current.city, pincode: next.pincode || current.pincode })) }} />
               </div>
             )}
@@ -222,14 +222,14 @@ export default function RegisterProperty() {
             {step === 2 && (
               <div className="space-y-4">
                 {rooms.map((room, index) => (
-                  <div key={index} className="rounded-xl border border-gray-200 p-4">
+                  <div key={index} className="rounded-xl border border-slate-200 p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <p className="font-semibold text-slate-800">Room {index + 1}</p>
                       {rooms.length > 1 && <button onClick={() => removeRoomRow(index)} className="text-sm font-semibold text-red-600">Remove</button>}
                     </div>
                     <div className="grid gap-3 sm:grid-cols-4">
-                      <input value={room.room_number} onChange={event => updateRoom(index, 'room_number', event.target.value)} placeholder="Room number *" className="rounded-xl border border-gray-200 px-4 py-3" />
-                      <select value={room.sharing_type} onChange={event => updateRoom(index, 'sharing_type', event.target.value)} className="rounded-xl border border-gray-200 px-4 py-3">
+                      <input value={room.room_number} onChange={event => updateRoom(index, 'room_number', event.target.value)} placeholder="Room number *" className="rounded-xl border border-slate-200 px-4 py-3" />
+                      <select value={room.sharing_type} onChange={event => updateRoom(index, 'sharing_type', event.target.value)} className="rounded-xl border border-slate-200 px-4 py-3">
                         <option value="single">Single</option>
                         <option value="double">Double</option>
                         <option value="triple">Triple</option>
@@ -237,8 +237,8 @@ export default function RegisterProperty() {
                         <option value="five">Five</option>
                         <option value="custom">Custom</option>
                       </select>
-                      <input type="number" min="1" value={room.capacity} onChange={event => updateRoom(index, 'capacity', event.target.value)} placeholder="Capacity *" className="rounded-xl border border-gray-200 px-4 py-3" />
-                      <input type="number" min="0" value={room.monthly_rent} onChange={event => updateRoom(index, 'monthly_rent', event.target.value)} placeholder="Monthly rent *" className="rounded-xl border border-gray-200 px-4 py-3" />
+                      <input type="number" min="1" value={room.capacity} onChange={event => updateRoom(index, 'capacity', event.target.value)} placeholder="Capacity *" className="rounded-xl border border-slate-200 px-4 py-3" />
+                      <input type="number" min="0" value={room.monthly_rent} onChange={event => updateRoom(index, 'monthly_rent', event.target.value)} placeholder="Monthly rent *" className="rounded-xl border border-slate-200 px-4 py-3" />
                     </div>
                   </div>
                 ))}
@@ -252,7 +252,7 @@ export default function RegisterProperty() {
                   <label className="block text-gray-700 mb-3">Select Amenities</label>
                   <div className="grid grid-cols-2 gap-3">
                     {amenitiesList.map(amenity => (
-                      <button key={amenity} type="button" onClick={() => toggleAmenity(amenity)} className={`p-3 rounded-xl border-2 transition-all ${formData.amenities.includes(amenity) ? 'border-slate-800 bg-slate-50 text-slate-800' : 'border-gray-200 text-gray-500 hover:border-slate-300'}`}>
+                      <button key={amenity} type="button" onClick={() => toggleAmenity(amenity)} className={`p-3 rounded-xl border-2 transition-all ${formData.amenities.includes(amenity) ? 'border-slate-800 bg-slate-50 text-slate-800' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                         {amenity}
                       </button>
                     ))}
@@ -281,13 +281,13 @@ export default function RegisterProperty() {
               <div className="bg-slate-50 rounded-xl p-6">
                 <p className="text-slate-800 text-lg mb-4 text-center font-semibold">Review New Property</p>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
-                  <div><p className="text-gray-500">Property Name:</p><p className="font-semibold text-slate-700">{formData.name || 'Not entered'}</p></div>
-                  <div><p className="text-gray-500">City:</p><p className="font-semibold text-slate-700">{formData.city || 'Not entered'}</p></div>
-                  <div><p className="text-gray-500">Rooms:</p><p className="font-semibold text-slate-700">{rooms.length}</p></div>
-                  <div><p className="text-gray-500">Amenities:</p><p className="font-semibold text-slate-700">{formData.amenities.length} selected</p></div>
-                  <div><p className="text-gray-500">Membership:</p><p className="font-semibold text-slate-700">Inactive until requested/approved for this property</p></div>
-                  <div><p className="text-gray-500">Photos:</p><p className="font-semibold text-slate-700">{propertyImages.length} image(s)</p></div>
-                  <div className="md:col-span-2"><p className="text-gray-500">Map location:</p><p className="font-semibold text-slate-700">{location?.formatted_address || 'Not selected'}</p></div>
+                  <div><p className="text-slate-500">Property Name:</p><p className="font-semibold text-slate-700">{formData.name || 'Not entered'}</p></div>
+                  <div><p className="text-slate-500">City:</p><p className="font-semibold text-slate-700">{formData.city || 'Not entered'}</p></div>
+                  <div><p className="text-slate-500">Rooms:</p><p className="font-semibold text-slate-700">{rooms.length}</p></div>
+                  <div><p className="text-slate-500">Amenities:</p><p className="font-semibold text-slate-700">{formData.amenities.length} selected</p></div>
+                  <div><p className="text-slate-500">Membership:</p><p className="font-semibold text-slate-700">Inactive until requested/approved for this property</p></div>
+                  <div><p className="text-slate-500">Photos:</p><p className="font-semibold text-slate-700">{propertyImages.length} image(s)</p></div>
+                  <div className="md:col-span-2"><p className="text-slate-500">Map location:</p><p className="font-semibold text-slate-700">{location?.formatted_address || 'Not selected'}</p></div>
                 </div>
               </div>
             )}

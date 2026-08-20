@@ -12,6 +12,6 @@ export default function PrivacyPolicy() {
     <h2 className="text-xl font-semibold text-slate-900">Storage and access</h2>
     <p>Sensitive documents and payment proofs are kept in secure, access-controlled storage. Access is limited according to account role and business need, such as the applicant, relevant property owner, tenant, or authorised HostelSet administrator.</p>
     <h2 className="text-xl font-semibold text-slate-900">Your choices</h2>
-    <p>You may request access or correction of your information, or deletion where legally and operationally permitted, by contacting <a className="font-semibold text-indigo-700 underline" href="mailto:support@hostelset.com">support@hostelset.com</a>.</p>
+    <p>You may request access or correction of your information, or deletion where legally and operationally permitted, by contacting <a className="font-semibold text-orange-700 underline dark:text-orange-300" href="mailto:support@hostelset.com">support@hostelset.com</a>.</p>
   </PublicInfoPage>
 }
