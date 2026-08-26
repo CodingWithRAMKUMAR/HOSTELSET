@@ -83,7 +83,15 @@ const DATABASE_FUNCTION_COVERAGE = {
   ),
   attach_payment_to_rent_record: databaseChain(
     'payment-to-rent allocation',
-    ['scripts/room-change-rent-db-tests.sql']
+    ['scripts/room-change-rent-db-tests.sql', 'scripts/rent-reminder-payment-db-tests.sql']
+  ),
+  cancel_paid_rent_reminder_if_covered: databaseChain(
+    'last-moment paid-cycle reminder cancellation',
+    ['supabase/functions/_shared/rent-reminder-service.test.ts', 'scripts/rent-reminder-payment-db-tests.sql']
+  ),
+  cancel_rent_reminders_for_paid_cycles: databaseChain(
+    'paid rent-cycle reminder cancellation',
+    ['scripts/rent-reminder-payment-db-tests.sql']
   ),
   block_reserved_vacate_delete: infrastructure(
     'Trigger guard that protects approved vacate records when a room has an active reservation.',
@@ -103,7 +111,7 @@ const DATABASE_FUNCTION_COVERAGE = {
   ),
   claim_due_rent_reminders: infrastructure(
     'Rent reminder scheduler worker claim function; covered as scheduler infrastructure rather than workflow UI.',
-    ['supabase/migrations/20260721140350_pending_payment_reminder_guard.sql']
+    ['supabase/migrations/202608250001_paid_rent_reminder_guards.sql', 'scripts/rent-reminder-payment-db-tests.sql']
   ),
   complete_due_vacate_requests: infrastructure(
     'Scheduled vacate completion job; retained as database lifecycle infrastructure.',
@@ -187,6 +195,10 @@ const DATABASE_FUNCTION_COVERAGE = {
   is_hostelset_admin: infrastructure(
     'Authorization helper used by database policies and admin RPCs.',
     ['supabase/migrations/202606290001_enable_realtime.sql']
+  ),
+  is_monthly_rent_payment_method: databaseChain(
+    'monthly rent payment classification',
+    ['scripts/rent-reminder-payment-db-tests.sql']
   ),
   is_public_property_visible: activeRpc(
     'pages/api/visitor/check-identity.js, pages/api/visitor/submit.js, pages/api/visitor/upload-url.js',
@@ -291,7 +303,11 @@ const DATABASE_FUNCTION_COVERAGE = {
   ),
   reconcile_rent_record: databaseChain(
     'rent record payment reconciliation',
-    ['scripts/room-change-rent-db-tests.sql']
+    ['scripts/room-change-rent-db-tests.sql', 'scripts/rent-reminder-payment-db-tests.sql']
+  ),
+  reconcile_rent_reminder_candidate_records: databaseChain(
+    'scheduler payment reconciliation before reminder scheduling and claim',
+    ['scripts/rent-reminder-payment-db-tests.sql']
   ),
   record_owner_rent_collection: activeRpc(
     'pages/owner/dashboard.js',
@@ -325,6 +341,14 @@ const DATABASE_FUNCTION_COVERAGE = {
     'Rent reminder scheduling helper; not a user-facing RPC surface.',
     ['supabase/migrations/202606300002_rent_reminder_infrastructure.sql']
   ),
+  rent_record_has_pending_payment: databaseChain(
+    'pending proof reminder suppression',
+    ['scripts/rent-reminder-payment-db-tests.sql']
+  ),
+  rent_record_is_fully_paid: databaseChain(
+    'canonical paid-cycle guard',
+    ['scripts/rent-reminder-payment-db-tests.sql', 'supabase/functions/_shared/rent-reminder-service.test.ts']
+  ),
   request_tenant_vacate: activeRpc(
     'pages/tenant/dashboard.js',
     'tenant vacate request workflow',
@@ -352,7 +376,7 @@ const DATABASE_FUNCTION_COVERAGE = {
   ),
   run_rent_reminder_scheduler: infrastructure(
     'Rent reminder scheduler entrypoint intended for scheduled execution.',
-    ['supabase/migrations/20260721140350_pending_payment_reminder_guard.sql']
+    ['supabase/migrations/202608250001_paid_rent_reminder_guards.sql', 'scripts/rent-reminder-payment-db-tests.sql']
   ),
   schedule_initial_rent_reminders: infrastructure(
     'Rent reminder scheduler helper invoked by rent-record triggers.',
@@ -360,7 +384,7 @@ const DATABASE_FUNCTION_COVERAGE = {
   ),
   schedule_weekly_overdue_reminders: infrastructure(
     'Rent reminder scheduler helper for overdue cycles.',
-    ['supabase/migrations/202606300002_rent_reminder_infrastructure.sql']
+    ['supabase/migrations/202608250001_paid_rent_reminder_guards.sql', 'scripts/rent-reminder-payment-db-tests.sql']
   ),
   set_existing_tenant_import_link_enabled: activeRpc(
     'hooks/useExistingTenantImports.js',
@@ -393,7 +417,7 @@ const DATABASE_FUNCTION_COVERAGE = {
   ),
   sync_successful_payment_to_rent_record: databaseChain(
     'successful payment-to-rent synchronization',
-    ['scripts/room-change-rent-db-tests.sql']
+    ['scripts/room-change-rent-db-tests.sql', 'scripts/rent-reminder-payment-db-tests.sql']
   ),
   sync_tenant_room_public_availability: infrastructure(
     'Tenant room/public availability trigger synchronization.',

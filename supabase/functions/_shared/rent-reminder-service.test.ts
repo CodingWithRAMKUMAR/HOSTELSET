@@ -30,6 +30,7 @@ const reminder: ClaimedRentReminder = {
 
 class FakeRepository implements RentReminderRepository {
   claimed = false;
+  cancelPaid = false;
   completed = 0;
   failed = 0;
 
@@ -40,6 +41,10 @@ class FakeRepository implements RentReminderRepository {
   async claimDue(): Promise<ClaimedRentReminder[]> {
     this.claimed = true;
     return [reminder];
+  }
+
+  async cancelIfPaid(): Promise<boolean> {
+    return this.cancelPaid;
   }
 
   async complete(): Promise<void> {
@@ -98,6 +103,20 @@ Deno.test("completes a reminder after provider success", async () => {
     email.sent[0].idempotencyKey === reminder.id,
     "queue id must be the idempotency key",
   );
+});
+
+Deno.test("does not send a claimed reminder when the cycle was just paid", async () => {
+  const repository = new FakeRepository();
+  repository.cancelPaid = true;
+  const email = new FakeEmailService(true);
+  const service = new RentReminderService(repository, email);
+
+  const result = await service.run();
+
+  assert(result.cancelledPaid === 1, "paid reminder should be cancelled");
+  assert(email.sent.length === 0, "paid cycle must not reach the provider");
+  assert(repository.completed === 0, "cancelled paid cycle is not completed");
+  assert(repository.failed === 0, "cancelled paid cycle is not retried");
 });
 
 Deno.test("records a retry after provider failure", async () => {

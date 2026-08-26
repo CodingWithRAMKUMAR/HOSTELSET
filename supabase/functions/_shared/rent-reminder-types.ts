@@ -19,10 +19,14 @@ export type ClaimedRentReminder = {
 };
 
 export type ReminderSchedulerResult = {
+  vacates_completed?: number;
   materialized_rents: number;
+  rent_records_reconciled?: number;
+  paid_cycle_reminders_cancelled?: number;
   weekly_reminders_scheduled: number;
   stale_locks_recovered: number;
   stale_reminders_cancelled: number;
+  pending_payment_reminders_cancelled?: number;
   ready_for_delivery: number;
 };
 
@@ -32,6 +36,11 @@ export interface RentReminderRepository {
     lockToken: string,
     batchSize: number,
   ): Promise<ClaimedRentReminder[]>;
+  cancelIfPaid(
+    reminderId: string,
+    rentId: string,
+    lockToken: string,
+  ): Promise<boolean>;
   complete(reminderId: string, lockToken: string): Promise<void>;
   fail(reminderId: string, lockToken: string, reason: string): Promise<void>;
 }
