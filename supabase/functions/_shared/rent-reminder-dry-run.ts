@@ -15,6 +15,7 @@ type RentRecord = {
   owner_id: string;
   due_date: string;
   amount: number;
+  credited_amount?: number | null;
   status: string;
   reminders_enabled: boolean;
   reminder_timezone?: string | null;
@@ -33,6 +34,14 @@ type ReminderCandidate = {
   dedupeKey: string;
 };
 
+type PaymentRow = {
+  id: string;
+  rent_id: string | null;
+  amount: number;
+  status: string;
+  payment_method: string | null;
+};
+
 const TEMPLATE_ENV = {
   before_due: "BREVO_RENT_BEFORE_DUE_TEMPLATE_ID",
   due_today: "BREVO_RENT_DUE_TODAY_TEMPLATE_ID",
@@ -41,6 +50,24 @@ const TEMPLATE_ENV = {
 } as const;
 
 const ACTIVE_TENANT_STATUSES = new Set(["active", "notice_period", "payment_pending"]);
+const NON_RENT_PAYMENT_METHODS = new Set([
+  "security_deposit",
+  "deposit",
+  "pre_booking",
+  "pre-booking",
+  "prebooking",
+  "pre_booking_fee",
+  "pre-booking_fee",
+  "application_fee",
+  "application-fee",
+  "joining_fee",
+  "joining-fee",
+]);
+
+function isMonthlyRentPaymentMethod(method: unknown): boolean {
+  const normalized = String(method ?? "").trim().toLowerCase();
+  return Boolean(normalized) && !NON_RENT_PAYMENT_METHODS.has(normalized);
+}
 
 function addDays(dateIso: string, days: number): string {
   const [year, month, day] = dateIso.split("-").map(Number);
@@ -111,7 +138,7 @@ export async function dryRunRentReminders(
   const limit = Math.max(1, Math.min(50, Number(options.limit || 10)));
   let query = client
     .from("rent_records")
-    .select("id,tenant_id,owner_id,due_date,amount,status,reminders_enabled,reminder_timezone");
+    .select("id,tenant_id,owner_id,due_date,amount,credited_amount,status,reminders_enabled,reminder_timezone");
   if (options.rentId) query = query.eq("id", options.rentId);
   if (options.tenantId) query = query.eq("tenant_id", options.tenantId);
 
@@ -131,6 +158,44 @@ export async function dryRunRentReminders(
   const tenantsById = new Map((tenants ?? []).map((tenant) => [tenant.id, tenant as TenantRecord]));
 
   const rentIds = rentRows.map((rent) => rent.id);
+  const { data: payments, error: paymentError } = rentIds.length
+    ? await client
+      .from("payment_history")
+      .select("id,rent_id,amount,status,payment_method")
+      .in("rent_id", rentIds)
+    : { data: [], error: null };
+  if (paymentError) {
+    throw new Error(`Unable to inspect rent payments: ${paymentError.message}`);
+  }
+  const paymentRows = (payments ?? []) as PaymentRow[];
+  const successfulRentPaymentsByRentId = new Map<string, PaymentRow[]>();
+  const pendingRentIds = new Set<string>();
+  for (const payment of paymentRows) {
+    if (!payment.rent_id || !isMonthlyRentPaymentMethod(payment.payment_method)) {
+      continue;
+    }
+    if (payment.status === "success") {
+      const rows = successfulRentPaymentsByRentId.get(payment.rent_id) ?? [];
+      rows.push(payment);
+      successfulRentPaymentsByRentId.set(payment.rent_id, rows);
+    }
+    if (payment.status === "payment_pending") {
+      pendingRentIds.add(payment.rent_id);
+    }
+  }
+
+  const receivedAmountByRentId = new Map<string, number>();
+  for (const rent of rentRows) {
+    const { data: receivedAmount, error: receivedError } = await client
+      .rpc("rent_record_received_amount", { p_rent_id: rent.id });
+    if (receivedError) {
+      throw new Error(
+        `Unable to inspect canonical received amount: ${receivedError.message}`,
+      );
+    }
+    receivedAmountByRentId.set(rent.id, Number(receivedAmount || 0));
+  }
+
   const { data: queueRows, error: queueError } = rentIds.length
     ? await client
       .from("rent_reminder_queue")
@@ -152,10 +217,21 @@ export async function dryRunRentReminders(
     reminders: rentRows.flatMap((rent) => {
       const tenant = tenantsById.get(rent.tenant_id);
       const { today, candidates } = remindersFor(rent, referenceTime);
-      const baseSkip = rent.status !== "unpaid"
+      const canonicalReceivedAmount = receivedAmountByRentId.get(rent.id) ?? 0;
+      const cycleAmount = Number(rent.amount || 0);
+      const cycleFullyPaid = canonicalReceivedAmount >= cycleAmount;
+      const linkedSuccessfulPayments =
+        successfulRentPaymentsByRentId.get(rent.id) ?? [];
+      const linkedSuccessfulPaymentIds = linkedSuccessfulPayments
+        .map((payment) => payment.id);
+      const baseSkip = cycleFullyPaid
+        ? "rent_cycle_paid"
+        : rent.status !== "unpaid"
         ? "rent_not_unpaid"
         : !rent.reminders_enabled
         ? "reminders_disabled"
+        : pendingRentIds.has(rent.id)
+        ? "payment_pending"
         : !tenant
         ? "tenant_missing"
         : !ACTIVE_TENANT_STATUSES.has(String(tenant.status || ""))
@@ -185,6 +261,11 @@ export async function dryRunRentReminders(
           dueDate: rent.due_date,
           localDate: today,
           amount: rent.amount,
+          cycleAmount,
+          canonicalReceivedAmount,
+          cycleFullyPaid,
+          linkedSuccessfulPaymentIds,
+          pendingPaymentPresent: pendingRentIds.has(rent.id),
           scheduledAt: candidate.scheduledAt,
           queueStatus: queue?.status || "missing",
           queueScheduledAt: queue?.scheduled_at || null,

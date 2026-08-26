@@ -10,11 +10,39 @@ import {
   repairableInitialReminderTypes,
 } from "./rent-reminder-schedule.ts";
 
+type RepairableRentRow = {
+  id: string;
+  tenant_id: string;
+  owner_id: string;
+  due_date: string;
+  amount: number;
+  reminder_timezone?: string | null;
+};
+
 function assertRpcSucceeded(
   error: { message: string } | null,
   operation: string,
 ): void {
   if (error) throw new Error(`${operation}: ${error.message}`);
+}
+
+const NON_RENT_PAYMENT_METHODS = new Set([
+  "security_deposit",
+  "deposit",
+  "pre_booking",
+  "pre-booking",
+  "prebooking",
+  "pre_booking_fee",
+  "pre-booking_fee",
+  "application_fee",
+  "application-fee",
+  "joining_fee",
+  "joining-fee",
+]);
+
+function isMonthlyRentPaymentMethod(method: unknown): boolean {
+  const normalized = String(method ?? "").trim().toLowerCase();
+  return Boolean(normalized) && !NON_RENT_PAYMENT_METHODS.has(normalized);
 }
 
 export class SupabaseRentReminderRepository implements RentReminderRepository {
@@ -34,20 +62,61 @@ export class SupabaseRentReminderRepository implements RentReminderRepository {
     const { today, beforeDueDate } = reminderRepairDueDates(referenceTime);
     const { data: rents, error: rentError } = await this.client
       .from("rent_records")
-      .select("id,tenant_id,owner_id,due_date,reminder_timezone")
+      .select("id,tenant_id,owner_id,due_date,amount,reminder_timezone")
       .eq("status", "unpaid")
       .eq("reminders_enabled", true)
       .in("due_date", [today, beforeDueDate]);
     assertRpcSucceeded(rentError, "Unable to inspect ready rent reminders");
 
-    const repairs = initialReminderRepairsForRents(rents ?? [], referenceTime);
+    const candidateRents = (rents ?? []) as RepairableRentRow[];
+    if (!candidateRents.length) return 0;
+
+    const rentIds = candidateRents.map((rent) => rent.id);
+    const { data: pendingPayments, error: pendingError } = await this.client
+      .from("payment_history")
+      .select("rent_id,payment_method,status")
+      .in("rent_id", rentIds)
+      .eq("status", "payment_pending");
+    assertRpcSucceeded(
+      pendingError,
+      "Unable to inspect pending rent payments",
+    );
+
+    const pendingRentIds = new Set(
+      (pendingPayments ?? [])
+        .filter((payment) =>
+          isMonthlyRentPaymentMethod(payment.payment_method)
+        )
+        .map((payment) => payment.rent_id),
+    );
+
+    const eligibleRents: RepairableRentRow[] = [];
+    for (const rent of candidateRents) {
+      if (pendingRentIds.has(rent.id)) continue;
+
+      const { data: receivedAmount, error: receivedError } = await this.client
+        .rpc("rent_record_received_amount", { p_rent_id: rent.id });
+      assertRpcSucceeded(
+        receivedError,
+        "Unable to inspect rent cycle payment coverage",
+      );
+
+      if (Number(receivedAmount || 0) < Number(rent.amount || 0)) {
+        eligibleRents.push(rent);
+      }
+    }
+
+    const repairs = initialReminderRepairsForRents(
+      eligibleRents,
+      referenceTime,
+    );
     if (!repairs.length) return 0;
 
-    const rentIds = [...new Set(repairs.map((repair) => repair.rent_id))];
+    const repairRentIds = [...new Set(repairs.map((repair) => repair.rent_id))];
     const { data: existingRows, error: existingError } = await this.client
       .from("rent_reminder_queue")
       .select("rent_id,reminder_type,reminder_sequence,status")
-      .in("rent_id", rentIds)
+      .in("rent_id", repairRentIds)
       .in("reminder_type", [...repairableInitialReminderTypes])
       .eq("reminder_sequence", 0);
     assertRpcSucceeded(
@@ -89,6 +158,23 @@ export class SupabaseRentReminderRepository implements RentReminderRepository {
     });
     assertRpcSucceeded(error, "Unable to claim rent reminders");
     return (data ?? []) as ClaimedRentReminder[];
+  }
+
+  async cancelIfPaid(
+    reminderId: string,
+    rentId: string,
+    lockToken: string,
+  ): Promise<boolean> {
+    const { data, error } = await this.client.rpc(
+      "cancel_paid_rent_reminder_if_covered",
+      {
+        p_reminder_id: reminderId,
+        p_rent_id: rentId,
+        p_lock_token: lockToken,
+      },
+    );
+    assertRpcSucceeded(error, "Unable to cancel paid rent reminder");
+    return Boolean(data);
   }
 
   async complete(reminderId: string, lockToken: string): Promise<void> {

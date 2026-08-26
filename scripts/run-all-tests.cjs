@@ -194,6 +194,12 @@ runDatabaseTest(
 )
 
 runDatabaseTest(
+  'Rent reminder payment database integration',
+  'scripts/rent-reminder-payment-db-tests.sql',
+  databaseContainer
+)
+
+runDatabaseTest(
   'Approved vacate cancellation database integration',
   'scripts/vacate-cancellation-db-tests.sql',
   databaseContainer

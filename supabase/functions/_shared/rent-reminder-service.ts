@@ -9,6 +9,7 @@ export type RentReminderRunResult = {
   scheduler: ReminderSchedulerResult;
   deliveryEnabled: boolean;
   claimed: number;
+  cancelledPaid: number;
   succeeded: number;
   failed: number;
 };
@@ -48,6 +49,7 @@ export class RentReminderService {
         scheduler,
         deliveryEnabled: false,
         claimed: 0,
+        cancelledPaid: 0,
         succeeded: 0,
         failed: 0,
       };
@@ -55,11 +57,22 @@ export class RentReminderService {
 
     const lockToken = crypto.randomUUID();
     const reminders = await this.repository.claimDue(lockToken, batchSize);
+    let cancelledPaid = 0;
     let succeeded = 0;
     let failed = 0;
 
     for (const reminder of reminders) {
       try {
+        const cancelled = await this.repository.cancelIfPaid(
+          reminder.id,
+          reminder.rent_id,
+          lockToken,
+        );
+        if (cancelled) {
+          cancelledPaid += 1;
+          continue;
+        }
+
         if (!reminder.tenant_email) {
           throw new Error("Tenant has no email address");
         }
@@ -92,6 +105,7 @@ export class RentReminderService {
       scheduler,
       deliveryEnabled: true,
       claimed: reminders.length,
+      cancelledPaid,
       succeeded,
       failed,
     };
